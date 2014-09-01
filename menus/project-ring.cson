@@ -1,0 +1,36 @@
+# See https://atom.io/docs/latest/creating-a-package#menus for more details
+'context-menu':
+    '.overlayer':
+        'Project Ring: Add To Ring': 'project-ring:add'
+        'Project Ring: Add To Ring With Alias': 'project-ring:add-as'
+        'Project Ring: Rename Project': 'project-ring:rename'
+        'Project Ring: Delete From Ring': 'project-ring:delete'
+        'Project Ring: Toggle Ring': 'project-ring:toggle'
+        'Project Ring: Open Project Buffers': 'project-ring:open-project-buffers'
+        'Project Ring: Unlink Current Project': 'project-ring:unlink'
+        'Project Ring: Unlink And Set Project Path': 'project-ring:set-project-path'
+        'Project Ring: Delete Current Project Ring Data': 'project-ring:delete-project-ring'
+        'Project Ring: Copy Project Alias': 'project-ring:copy-project-alias'
+        'Project Ring: Copy Project Path': 'project-ring:copy-project-path'
+
+'menu': [
+    {
+        'label': 'Packages'
+        'submenu': [
+            'label': 'Project Ring'
+            'submenu': [
+                { 'label': 'Add', 'command': 'project-ring:add' },
+                { 'label': 'Add As', 'command': 'project-ring:add-as' },
+                { 'label': 'Rename', 'command': 'project-ring:rename' },
+                { 'label': 'Delete', 'command': 'project-ring:delete' },
+                { 'label': 'Toggle', 'command': 'project-ring:toggle' },
+                { 'label': 'Open Project Buffers', 'command': 'project-ring:open-project-buffers' },
+                { 'label': 'Unlink', 'command': 'project-ring:unlink' },
+                { 'label': 'Set Project Path', 'command': 'project-ring:set-project-path' },
+                { 'label': 'Delete Current Project Ring', 'command': 'project-ring:delete-project-ring' },
+                { 'label': 'Copy Project Alias', 'command': 'project-ring:copy-project-alias' },
+                { 'label': 'Copy Project Path', 'command': 'project-ring:copy-project-path' }
+            ]
+        ]
+    }
+]
