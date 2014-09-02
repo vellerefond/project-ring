@@ -63,6 +63,7 @@ module.exports =
                     buffer.off 'destroyed.project-ring'
                     buffer.on 'destroyed.project-ring', onBufferDestroyedProjectRingEventHandlerFactory buffer
                 atom.project.on 'buffer-created.project-ring', (openProjectBuffer) =>
+                    return unless openProjectBuffer.file
                     openProjectBuffer.off 'destroyed.project-ring'
                     openProjectBuffer.on 'destroyed.project-ring', onBufferDestroyedProjectRingEventHandlerFactory openProjectBuffer
                     unless (@statesCache[atom.project.path].openBufferPaths.find (openBufferPath) -> openBufferPath == openProjectBuffer.file.path)
