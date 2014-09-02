@@ -23,7 +23,7 @@
  - **Project Loading**:
 > ###### Load a project, along with its associated buffers and tree view state, or load its buffers without changing Atom's notion of _current project_, thus not affecting the loaded project's tree view. You can also load a new folder as the current project's root path using a key binding (command in command pallete: _Project Ring: Set Project Path_).
 
-- **Project Automatic Loading On Startup**:
+ - **Automatic Project Loading On Startup**:
 > ###### Set a project's alias in the package's settings to have it automatically loaded on Atom's startup.
 
  - **Project Cycling**:
