@@ -6,3 +6,8 @@
 * Buffer appending: Open the buffers of a saved project withoug affecting the current project.
 * Configuration options regarding saving and restoring buffers and whether a loaded project should close all unrelated buffers.
 * Basic keybinding for all the main functionality.
+
+## 0.2.0 - Predefined project loading / Automatic save/open for buffers / Configuration of skipSavingProjectBuffers
+* Predefined project loading: Set from configuration, a project's alias can be provided for automatic loading on startup.
+* Automatic save/open for buffers: Project's buffers are automatically updated as they are opened and closed.
+* Configuration of skipSavingProjectBuffers: Automatic save/open of project's buffer is controlled by the observed configuration option "skipSavingProjectBuffers".
