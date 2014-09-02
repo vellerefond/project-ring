@@ -1,8 +1,8 @@
 {
   "name": "project-ring",
   "main": "./lib/project-ring",
-  "version": "0.2.1",
-  "description": "Quickly cycle through saved projects in the same window.",
+  "version": "0.3.0",
+  "description": "Project management for the Atom editor.",
   "repository": "https://github.com/vellerefond/project-ring",
   "license": "MIT",
   "engines": {

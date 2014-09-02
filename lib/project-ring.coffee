@@ -70,49 +70,52 @@ module.exports =
                         @statesCache[atom.project.path].openBufferPaths.push openProjectBuffer.file.path
                         @saveProjectRing()
 
-    getProjectRingPackagePath: ->
-        projectRing = atom.packages.getLoadedPackages().find (loadedPackage) -> /^project-ring$/i.test(loadedPackage.name)
-        projectRing?.path
-
-    getFilePathRelativeToProject: (path) ->
+    getConfigurationPath: ->
         _path = require 'path'
-        _path.join @getProjectRingPackagePath(), path
+        path = _path.join process.env[if process.platform == 'win32' then 'USERPROFILE' else 'HOME'],
+            '.atom-project-ring'
+        _fs = require 'fs'
+        _fs.mkdirSync path unless _fs.existsSync path
+        path
+
+    getConfigurationFilePath: (path) ->
+        _path = require 'path'
+        _path.join @getConfigurationPath(), path
 
     formatProjectRingId: (id) ->
         id?.trim()
 
-    getPathFilePath: (id) ->
-        _path = require 'path'
-        _path.join 'data', (@formatProjectRingId id) + '_project_ring_path.txt'
+    getProjectRingPathFilePath: (id) ->
+        @getConfigurationFilePath (@formatProjectRingId id) + '_project_ring_path.txt'
 
     setProjectRing: (id) ->
         id = @formatProjectRingId id
         @projectRingId = id
-        pathFilePathForId = @getFilePathRelativeToProject (@getPathFilePath @projectRingId)
+        pathFilePathForId = @getProjectRingPathFilePath @projectRingId
         ok = true
         _fs = require 'fs'
         _fs.exists pathFilePathForId, (exists) =>
             return if exists
-            _fs.writeFile pathFilePathForId, '/data/' + @projectRingId + '_project_ring.cson', (error) ->
+            _fs.writeFile pathFilePathForId, (@getConfigurationFilePath (@projectRingId + '_project_ring.cson')), (error) ->
                 ok = false if error
                 alert 'Could not set project ring files for id: "' + id + '" (' + error + ')' unless ok
         return unless ok
         @loadProjectRing @projectRingId
 
-    getCSONProjectRingPath: ->
+    getProjectRingCSONFilePath: ->
         return unless @projectRingId and not /^\s*$/.test(@projectRingId)
         csonFilePath = undefined
         _fs = require 'fs'
         try
-            csonFilePath = _fs.readFileSync (@getFilePathRelativeToProject (@getPathFilePath @projectRingId)), 'utf8'
+            csonFilePath = _fs.readFileSync (@getProjectRingPathFilePath @projectRingId), 'utf8'
         catch error
             return error
-        @getFilePathRelativeToProject csonFilePath if csonFilePath and not /^\s*$/.test(csonFilePath)
+        csonFilePath
 
     # SHOULD NOT BE USED DIRECTLY BUT ONLY THROUGH setProjectRing INSTEAD
     loadProjectRing: ->
         return unless @projectRingId and not /^\s*$/.test(@projectRingId)
-        csonFilePath = @getCSONProjectRingPath()
+        csonFilePath = @getProjectRingCSONFilePath()
         return unless csonFilePath and not /^\s*$/.test(csonFilePath)
         _fs = require 'fs'
         unless _fs.existsSync csonFilePath
@@ -127,7 +130,7 @@ module.exports =
 
     saveProjectRing: ->
         return unless @projectRingId and not /^\s*$/.test(@projectRingId)
-        csonFilePath = @getCSONProjectRingPath()
+        csonFilePath = @getProjectRingCSONFilePath()
         return unless csonFilePath and not /^\s*$/.test(csonFilePath)
         _cson = require 'season'
         try
@@ -137,6 +140,7 @@ module.exports =
             return
 
     deactivate: ->
+        @loadProjectRingView()
         @projectRingView.destroy()
 
     serialize: ->
@@ -245,8 +249,8 @@ module.exports =
     deleteProjectRing: ->
         return unless @projectRingId and not /^\s*$/.test(@projectRingId)
         @projectRingView.destroy()
-        csonFilePath = @getCSONProjectRingPath()
-        pathFilePathForId = @getFilePathRelativeToProject (@getPathFilePath @projectRingId)
+        csonFilePath = @getProjectRingCSONFilePath()
+        pathFilePathForId = @getProjectRingPathFilePath @projectRingId
         _fs = require 'fs'
         _fs.unlinkSync csonFilePath if _fs.existsSync csonFilePath
         _fs.unlinkSync pathFilePathForId if _fs.existsSync pathFilePathForId

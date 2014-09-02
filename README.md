@@ -1,7 +1,7 @@
 # Project Ring
 
 - ### **Description**:
-> ###### Quickly cycle through saved projects in the same window.
+> ###### Project management for the Atom editor.
 
 - ### **Main features**:
 

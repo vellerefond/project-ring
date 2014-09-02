@@ -11,3 +11,7 @@
 * Predefined project loading: Set from configuration, a project's alias can be provided for automatic loading on startup.
 * Automatic save/open for buffers: Project's buffers are automatically updated as they are opened and closed.
 * Configuration of skipSavingProjectBuffers: Automatic save/open of project's buffer is controlled by the observed configuration option "skipSavingProjectBuffers".
+
+## 0.2.1 - See v0.2.0 + Updated README.md
+
+## 0.3.0 - Configuration files now exist in ~/.atom-project-ring
