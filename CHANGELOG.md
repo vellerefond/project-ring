@@ -15,3 +15,5 @@
 ## 0.2.1 - See v0.2.0 + Updated README.md
 
 ## 0.3.0 - Configuration files now exist in ~/.atom-project-ring
+
+## 0.4.0 - Implementation for moving a project root path to another location (the location must be properly initialized to avoid losing state)

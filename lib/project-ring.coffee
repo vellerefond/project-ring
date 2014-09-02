@@ -37,6 +37,7 @@ module.exports =
         atom.workspaceView.command "project-ring:delete-project-ring", => @deleteProjectRing()
         atom.workspaceView.command "project-ring:copy-project-alias", => @copy 'alias'
         atom.workspaceView.command "project-ring:copy-project-path", => @copy 'projectPath'
+        atom.workspaceView.command "project-ring:move-project-path", => @setProjectPath true
 
     setupSkipSavingProjectBuffersObservation: ->
         atom.config.observe 'project-ring.skipSavingProjectBuffers', null, (skipSavingProjectBuffers) =>
@@ -49,24 +50,40 @@ module.exports =
             else
                 onBufferDestroyedProjectRingEventHandlerFactory = (bufferDestroyed) =>
                     =>
-                        return unless bufferDestroyed.file and atom.project.path and @statesCache and @statesCache[atom.project.path]
+                        return unless bufferDestroyed.file and
+                            atom.project.path and
+                            @statesCache and
+                            @statesCache[atom.project.path]
                         setTimeout (
                                 =>
-                                    return unless bufferDestroyed.file and atom.project.path and @statesCache and @statesCache[atom.project.path]
-                                    if (@statesCache[atom.project.path].openBufferPaths.find (openBufferPath) -> openBufferPath == bufferDestroyed.file.path)
-                                        @statesCache[atom.project.path].openBufferPaths = @statesCache[atom.project.path].openBufferPaths.filter (openBufferPath) =>
-                                            openBufferPath != bufferDestroyed.file.path
+                                    return unless bufferDestroyed.file and
+                                        atom.project.path and
+                                        @statesCache and
+                                        @statesCache[atom.project.path]
+                                    if (@statesCache[atom.project.path].openBufferPaths.find (openBufferPath) ->
+                                            openBufferPath.toLowerCase() == bufferDestroyed.file.path.toLowerCase())
+                                        @statesCache[atom.project.path].openBufferPaths =
+                                            @statesCache[atom.project.path].openBufferPaths.filter (openBufferPath) =>
+                                                openBufferPath.toLowerCase() != bufferDestroyed.file.path.toLowerCase()
                                         @saveProjectRing()
                             ),
                             250
                 atom.project.buffers.forEach (buffer) =>
                     buffer.off 'destroyed.project-ring'
-                    buffer.on 'destroyed.project-ring', onBufferDestroyedProjectRingEventHandlerFactory buffer
+                    buffer.on \
+                        'destroyed.project-ring', \
+                        onBufferDestroyedProjectRingEventHandlerFactory buffer
                 atom.project.on 'buffer-created.project-ring', (openProjectBuffer) =>
                     return unless openProjectBuffer.file
                     openProjectBuffer.off 'destroyed.project-ring'
-                    openProjectBuffer.on 'destroyed.project-ring', onBufferDestroyedProjectRingEventHandlerFactory openProjectBuffer
-                    unless (@statesCache[atom.project.path].openBufferPaths.find (openBufferPath) -> openBufferPath == openProjectBuffer.file.path)
+                    openProjectBuffer.on \
+                        'destroyed.project-ring', \
+                        onBufferDestroyedProjectRingEventHandlerFactory openProjectBuffer
+                    return unless atom.project.path and
+                        @statesCache and
+                        @statesCache[atom.project.path]
+                    unless (@statesCache[atom.project.path].openBufferPaths.find (openBufferPath) ->
+                                openBufferPath.toLowerCase() == openProjectBuffer.file.path.toLowerCase())
                         @statesCache[atom.project.path].openBufferPaths.push openProjectBuffer.file.path
                         @saveProjectRing()
 
@@ -236,18 +253,47 @@ module.exports =
         treeView.deactivate()
         atom.project.setPath null
 
-    setProjectPath: ->
+    setProjectPath: (replace) ->
         @loadProjectRingView()
         @projectRingView.destroy()
         dialog = (require 'remote').require 'dialog'
-        dialog.showOpenDialog title: 'Open', properties: [ 'openDirectory', 'createDirectory' ], (pathsToOpen) =>
-            pathsToOpen = pathsToOpen or []
-            return unless pathsToOpen.length
-            @unlink()
-            atom.project.setPath pathsToOpen[0]
+        dialog.showOpenDialog
+            title: (if not replace then 'Open' else 'Replace with')
+            properties: [ 'openDirectory', 'createDirectory' ],
+            (pathsToOpen) =>
+                pathsToOpen = pathsToOpen or []
+                return unless pathsToOpen.length
+                unless replace
+                    @unlink()
+                    atom.project.setPath pathsToOpen[0]
+                    return
+                if @statesCache[atom.project.path]
+                    @statesCache[pathsToOpen[0]] = @statesCache[atom.project.path]
+                    @statesCache[pathsToOpen[0]].projectPath = pathsToOpen[0]
+                    if @statesCache[pathsToOpen[0]].treeViewState
+                        oldPathRE = new RegExp '^' + (atom.project.path.replace \
+                            /[\$\^\*\(\)\[\]\{\}\|\\\.\?\+]/g, (match) -> '\\' + match), 'i'
+                        if @statesCache[pathsToOpen[0]].treeViewState.selectedPath and not
+                        /^\s*$/.test(@statesCache[pathsToOpen[0]].treeViewState.selectedPath)
+                            @statesCache[pathsToOpen[0]].treeViewState.selectedPath =
+                                @statesCache[pathsToOpen[0]].treeViewState.selectedPath.replace \
+                                    oldPathRE, pathsToOpen[0]
+                        if @statesCache[pathsToOpen[0]].openBufferPaths.length
+                            newOpenBufferPaths = []
+                            @statesCache[pathsToOpen[0]].openBufferPaths.forEach (openBufferPath) ->
+                                newOpenBufferPaths.push openBufferPath.replace oldPathRE, pathsToOpen[0]
+                            @statesCache[pathsToOpen[0]].openBufferPaths = newOpenBufferPaths
+                    delete @statesCache[atom.project.path]
+                atom.project.setPath pathsToOpen[0]
+                if not @statesCache[pathsToOpen[0]]
+                    @add()
+                else
+                    @saveProjectRing()
+                @processProjectRingViewProjectSelection @statesCache[pathsToOpen[0]]
 
     deleteProjectRing: ->
         return unless @projectRingId and not /^\s*$/.test(@projectRingId)
+        @loadProjectRingView()
         @projectRingView.destroy()
         csonFilePath = @getProjectRingCSONFilePath()
         pathFilePathForId = @getProjectRingPathFilePath @projectRingId
@@ -304,10 +350,12 @@ module.exports =
                 unless projectState.openBufferPaths.length == validOpenBufferPaths.length or openProjectBuffersOnly
                     @statesCache[projectState.projectPath].openBufferPaths = validOpenBufferPaths
                     @saveProjectRing()
-                currentlyOpenBufferPaths = @getOpenBufferPaths()
+                currentlyOpenBufferPaths = []
+                @getOpenBufferPaths().forEach (openBufferPath) ->
+                    currentlyOpenBufferPaths.push openBufferPath.toLowerCase()
                 bufferPathsToOpen = []
                 for openBufferPath in (validOpenBufferPaths.filter (openBufferPath) ->
-                    openBufferPath not in currentlyOpenBufferPaths)
+                    openBufferPath.toLowerCase() not in currentlyOpenBufferPaths)
                     bufferPathsToOpen.push openBufferPath
                 if bufferPathsToOpen.length
                     atom.open
