@@ -13,6 +13,7 @@
         'Project Ring: Copy Project Alias': 'project-ring:copy-project-alias'
         'Project Ring: Copy Project Path': 'project-ring:copy-project-path'
         'Project Ring: Move Project Path': 'project-ring:move-project-path'
+        'Project Ring: Edit Key Bindings': 'project-ring:edit-key-bindings'
 
 'menu': [
     {
@@ -31,7 +32,8 @@
                 { 'label': 'Delete Current Project Ring', 'command': 'project-ring:delete-project-ring' },
                 { 'label': 'Copy Project Alias', 'command': 'project-ring:copy-project-alias' },
                 { 'label': 'Copy Project Path', 'command': 'project-ring:copy-project-path' },
-                { 'label': 'Move Project Path', 'command': 'project-ring:move-project-path' }
+                { 'label': 'Move Project Path', 'command': 'project-ring:move-project-path' },
+                { 'label': 'Edit Key Bindings', 'command': 'project-ring:edit-key-bindings' }
             ]
         ]
     }

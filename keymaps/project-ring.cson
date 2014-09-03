@@ -7,7 +7,12 @@
 
 # For more detailed documentation see
 # https://atom.io/docs/latest/advanced/keymaps
-'.workspace':
+
+# After changing the key bingings while running Atom at the same time,
+# please, reload (in command palette: "Window: Reload") or close and
+# reopen Atom for the changes to take effect.
+
+'.workspace ':
     'alt-shift-\\': 'project-ring:add'
     'alt-shift-=': 'project-ring:add-as'
     'alt-shift-/': 'project-ring:rename'

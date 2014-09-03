@@ -16,7 +16,7 @@ module.exports =
     activate: (state) ->
         @setupSkipSavingProjectBuffersObservation()
         @setProjectRing 'default'
-        projectToLoadOnStartUp = atom.config.get('project-ring.projectToLoadOnStartUp')
+        projectToLoadOnStartUp = atom.config.get 'project-ring.projectToLoadOnStartUp'
         if projectToLoadOnStartUp and
         not /^\s*$/.test(projectToLoadOnStartUp) and
         @statesCache
@@ -38,6 +38,7 @@ module.exports =
         atom.workspaceView.command "project-ring:copy-project-alias", => @copy 'alias'
         atom.workspaceView.command "project-ring:copy-project-path", => @copy 'projectPath'
         atom.workspaceView.command "project-ring:move-project-path", => @setProjectPath true
+        atom.workspaceView.command "project-ring:edit-key-bindings", => @editKeyBindings()
 
     setupSkipSavingProjectBuffersObservation: ->
         atom.config.observe 'project-ring.skipSavingProjectBuffers', null, (skipSavingProjectBuffers) =>
@@ -157,8 +158,7 @@ module.exports =
             return
 
     deactivate: ->
-        @loadProjectRingView()
-        @projectRingView.destroy()
+        @projectRingView.destroy() if @projectRingView
 
     serialize: ->
 
@@ -174,16 +174,15 @@ module.exports =
 
     getOpenBufferPaths: ->
         openBufferPaths = []
-        unless atom.config.get('project-ring.skipSavingProjectBuffers')
+        unless atom.config.get 'project-ring.skipSavingProjectBuffers'
             for buffer in (atom.project.buffers.filter (buffer) -> buffer.file)
                 openBufferPaths.push buffer.file.path
         openBufferPaths
 
     add: (alias, renameOnly) ->
-        @loadProjectRingView()
-        @projectRingView.destroy()
+        @projectRingView.destroy() if @projectRingView
         return unless atom.project.path and not /^\s*$/.test(atom.project.path)
-        treeView = atom.packages.getLoadedPackages().find (loadedPackage) -> /^tree-view$/i.test(loadedPackage.name)
+        treeView = atom.packages.getLoadedPackage 'tree-view'
         return unless treeView;
         treeViewState = treeView.serialize()
         alias = alias or atom.project.path
@@ -223,10 +222,10 @@ module.exports =
         if deleteKeyBinding
         then deleteKeyBinding = ' (delete selected: ' + deleteKeyBinding.keystrokes.split(/\s+/)[0].replace(/-[^-]+$/, '-') + 'delete)'
         else deleteKeyBinding = ''
-        @loadProjectRingView()
-        if @projectRingView.hasParent()
+        if @projectRingView and @projectRingView.hasParent()
             @projectRingView.destroy()
         else
+            @loadProjectRingView()
             @projectRingView.attach {
                 viewMode: 'project',
                 openProjectBuffersOnly: openProjectBuffersOnly
@@ -237,25 +236,22 @@ module.exports =
             }, @statesCache, 'alias', 'projectPath'
 
     delete: ->
-        @loadProjectRingView()
-        @projectRingView.destroy()
+        @projectRingView.destroy() if @projectRingView
         return unless atom.project.path and not /^\s*$/.test(atom.project.path)
         @statesCache = {} unless @statesCache
         delete @statesCache[atom.project.path]
         @saveProjectRing()
 
     unlink: ->
-        @loadProjectRingView()
-        @projectRingView.destroy()
+        @projectRingView.destroy() if @projectRingView
         return unless atom.project.path and not /^\s*$/.test(atom.project.path)
-        treeView = atom.packages.getLoadedPackages().find (loadedPackage) -> /^tree-view$/i.test(loadedPackage.name)
+        treeView = atom.packages.getLoadedPackage 'tree-view'
         return unless treeView;
         treeView.deactivate()
         atom.project.setPath null
 
     setProjectPath: (replace) ->
-        @loadProjectRingView()
-        @projectRingView.destroy()
+        @projectRingView.destroy() if @projectRingView
         dialog = (require 'remote').require 'dialog'
         dialog.showOpenDialog
             title: (if not replace then 'Open' else 'Replace with')
@@ -273,8 +269,8 @@ module.exports =
                     if @statesCache[pathsToOpen[0]].treeViewState
                         oldPathRE = new RegExp '^' + (atom.project.path.replace \
                             /[\$\^\*\(\)\[\]\{\}\|\\\.\?\+]/g, (match) -> '\\' + match), 'i'
-                        if @statesCache[pathsToOpen[0]].treeViewState.selectedPath and not
-                        /^\s*$/.test(@statesCache[pathsToOpen[0]].treeViewState.selectedPath)
+                        if @statesCache[pathsToOpen[0]].treeViewState.selectedPath and
+                        not /^\s*$/.test(@statesCache[pathsToOpen[0]].treeViewState.selectedPath)
                             @statesCache[pathsToOpen[0]].treeViewState.selectedPath =
                                 @statesCache[pathsToOpen[0]].treeViewState.selectedPath.replace \
                                     oldPathRE, pathsToOpen[0]
@@ -293,8 +289,7 @@ module.exports =
 
     deleteProjectRing: ->
         return unless @projectRingId and not /^\s*$/.test(@projectRingId)
-        @loadProjectRingView()
-        @projectRingView.destroy()
+        @projectRingView.destroy() if @projectRingView
         csonFilePath = @getProjectRingCSONFilePath()
         pathFilePathForId = @getProjectRingPathFilePath @projectRingId
         _fs = require 'fs'
@@ -313,7 +308,7 @@ module.exports =
 
     processProjectRingViewProjectDeletion: (projectState) ->
         return unless projectState and @statesCache and @statesCache[projectState.projectPath]
-        @projectRingView.destroy()
+        @projectRingView.destroy() if @projectRingView
         delete @statesCache[projectState.projectPath]
         @saveProjectRing()
 
@@ -329,7 +324,7 @@ module.exports =
             @saveProjectRing()
             return
         unless openProjectBuffersOnly
-            treeView = atom.packages.getLoadedPackages().find (loadedPackage) -> /^tree-view$/i.test(loadedPackage.name)
+            treeView = atom.packages.getLoadedPackage 'tree-view'
             return unless treeView;
             treeView.deactivate()
             atom.project.once 'path-changed', ->
@@ -339,14 +334,15 @@ module.exports =
                     # ensure that we expand the proper folders
                     treeView.mainModule.treeView.updateRoot(projectState.treeViewState.directoryExpansionStates)
             atom.project.setPath projectState.projectPath
-        unless not openProjectBuffersOnly and atom.config.get('project-ring.skipOpeningProjectBuffers')
+        unless not openProjectBuffersOnly and atom.config.get 'project-ring.skipOpeningProjectBuffers'
             if projectState.openBufferPaths and projectState.openBufferPaths.length
                 validOpenBufferPaths = projectState.openBufferPaths.filter (openBufferPath) ->
                     _fs.existsSync(openBufferPath)
-                unless openProjectBuffersOnly or not atom.config.get('project-ring.keepOnlyProjectBuffersOnProjectSelection')
-                    (atom.project.buffers.filter (buffer) ->
-                        buffer.file.path not in validOpenBufferPaths).forEach (b) ->
-                            b.destroy()
+                unless openProjectBuffersOnly or
+                    not atom.config.get 'project-ring.keepOnlyProjectBuffersOnProjectSelection'
+                        (atom.project.buffers.filter (buffer) ->
+                            not buffer.file or buffer.file.path not in validOpenBufferPaths).forEach (b) ->
+                                b.destroy()
                 unless projectState.openBufferPaths.length == validOpenBufferPaths.length or openProjectBuffersOnly
                     @statesCache[projectState.projectPath].openBufferPaths = validOpenBufferPaths
                     @saveProjectRing()
@@ -379,3 +375,15 @@ module.exports =
         catch error
             alert error
             return
+
+    editKeyBindings: ->
+        _path = require('path')
+        keyBindingsFilePath = _path.join \
+            atom.packages.getLoadedPackage('project-ring').path, 'keymaps', 'project-ring.cson'
+        _fs = require('fs')
+        unless _fs.existsSync keyBindingsFilePath
+            alert 'Could not find the default Project Ring key bindings file.'
+            return
+        atom.open
+            pathsToOpen: [ keyBindingsFilePath ]
+            newWindow: false
