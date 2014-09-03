@@ -31,3 +31,6 @@
 
  - **Project Moving**:
 > ###### Use the "Project Ring: Move Project Path" to move a project's root path to another location. This location **must** be properly initialized (e.g., all files copied under the new location) so as not to lose state.
+
+ - **Configuration Synchronization**:
+> ###### The configuration files are watched so that, e.g., adding, deleting or renaming a project in one window is reflected in all other windows.

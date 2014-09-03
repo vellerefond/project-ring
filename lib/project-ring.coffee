@@ -1,4 +1,6 @@
 module.exports =
+    projectRingInvariantState: null
+
     configDefaults:
         skipSavingProjectBuffers: false
         skipOpeningProjectBuffers: false
@@ -13,19 +15,17 @@ module.exports =
 
     statesCache: null
 
+    currentlySavingConfiguration: null
+
     activate: (state) ->
+        @projectRingInvariantState =
+            deletionDelay: 250
+            configurationFileWatchInterval: 2500
+        Object.freeze @projectRingInvariantState
+        @currentlySavingConfiguration =
+            csonFile: false
         @setupSkipSavingProjectBuffersObservation()
-        @setProjectRing 'default'
-        projectToLoadOnStartUp = atom.config.get 'project-ring.projectToLoadOnStartUp'
-        if projectToLoadOnStartUp and
-        not /^\s*$/.test(projectToLoadOnStartUp) and
-        @statesCache
-            for stateKey in Object.keys @statesCache
-                unless @statesCache[stateKey].alias == projectToLoadOnStartUp or
-                @statesCache[stateKey].projectPath == projectToLoadOnStartUp
-                    continue
-                @processProjectRingViewProjectSelection @statesCache[stateKey]
-                break
+        @setProjectRing 'default', atom.config.get 'project-ring.projectToLoadOnStartUp'
         atom.workspaceView.command "project-ring:add", => @add()
         atom.workspaceView.command "project-ring:add-as", => @addAs()
         atom.workspaceView.command "project-ring:rename", => @addAs true
@@ -68,7 +68,7 @@ module.exports =
                                                 openBufferPath.toLowerCase() != bufferDestroyed.file.path.toLowerCase()
                                         @saveProjectRing()
                             ),
-                            250
+                            @projectRingInvariantState.deletionDelay
                 atom.project.buffers.forEach (buffer) =>
                     buffer.off 'destroyed.project-ring'
                     buffer.on \
@@ -103,37 +103,63 @@ module.exports =
     formatProjectRingId: (id) ->
         id?.trim()
 
-    getProjectRingPathFilePath: (id) ->
-        @getConfigurationFilePath (@formatProjectRingId id) + '_project_ring_path.txt'
+    getPathFilePath: ->
+        @getConfigurationFilePath @projectRingId + '_project_ring_path.txt'
 
-    setProjectRing: (id) ->
-        id = @formatProjectRingId id
-        @projectRingId = id
-        pathFilePathForId = @getProjectRingPathFilePath @projectRingId
-        ok = true
-        _fs = require 'fs'
-        _fs.exists pathFilePathForId, (exists) =>
-            return if exists
-            _fs.writeFile pathFilePathForId, (@getConfigurationFilePath (@projectRingId + '_project_ring.cson')), (error) ->
-                ok = false if error
-                alert 'Could not set project ring files for id: "' + id + '" (' + error + ')' unless ok
-        return unless ok
-        @loadProjectRing @projectRingId
-
-    getProjectRingCSONFilePath: ->
+    getCSONFilePath: ->
         return unless @projectRingId and not /^\s*$/.test(@projectRingId)
         csonFilePath = undefined
         _fs = require 'fs'
         try
-            csonFilePath = _fs.readFileSync (@getProjectRingPathFilePath @projectRingId), 'utf8'
+            csonFilePath = _fs.readFileSync @getPathFilePath(), 'utf8'
         catch error
             return error
         csonFilePath
 
+    watchProjectRingConfiguration: (watch) ->
+        return unless @projectRingId
+        _fs = require 'fs'
+        pathFilePath = @getPathFilePath()
+        csonFilePath = @getCSONFilePath()
+        if watch
+            if pathFilePath
+                _fs.watchFile \
+                    pathFilePath,
+                    { persistent: true, interval: @projectRingInvariantState.configurationFileWatchInterval },
+                    (currentStat, previousStat) => @setProjectRing @projectRingId # , (atom.project.path)
+            if csonFilePath
+                _fs.watchFile \
+                    csonFilePath,
+                    { persistent: true, interval: @projectRingInvariantState.configurationFileWatchInterval },
+                    (currentStat, previousStat) =>
+                        if @currentlySavingConfiguration.csonFile
+                            @currentlySavingConfiguration.csonFile = false
+                            return
+                        @setProjectRing @projectRingId # , atom.project.path
+        else
+            _fs.unwatchFile pathFilePath if pathFilePath
+            _fs.unwatchFile csonFilePath if csonFilePath
+
+    setProjectRing: (id, projectSpecificationToLoad) ->
+        @watchProjectRingConfiguration false
+        id = @formatProjectRingId id
+        @projectRingId = id
+        pathFilePath = @getPathFilePath()
+        ok = true
+        _fs = require 'fs'
+        _fs.exists pathFilePath, (exists) =>
+            return if exists
+            _fs.writeFile pathFilePath, (@getConfigurationFilePath (@projectRingId + '_project_ring.cson')), (error) ->
+                ok = false if error
+                alert 'Could not set project ring files for id: "' + id + '" (' + error + ')' unless ok
+        return unless ok
+        @loadProjectRing projectSpecificationToLoad
+        @watchProjectRingConfiguration true
+
     # SHOULD NOT BE USED DIRECTLY BUT ONLY THROUGH setProjectRing INSTEAD
-    loadProjectRing: ->
+    loadProjectRing: (projectSpecificationToLoad) ->
         return unless @projectRingId and not /^\s*$/.test(@projectRingId)
-        csonFilePath = @getProjectRingCSONFilePath()
+        csonFilePath = @getCSONFilePath()
         return unless csonFilePath and not /^\s*$/.test(csonFilePath)
         _fs = require 'fs'
         unless _fs.existsSync csonFilePath
@@ -142,18 +168,29 @@ module.exports =
         _cson = require 'season'
         try
             @statesCache = _cson.readFileSync csonFilePath
+            if projectSpecificationToLoad and \
+            not /^\s*$/.test(projectSpecificationToLoad) and
+            @statesCache
+                for stateKey in Object.keys @statesCache
+                    unless @statesCache[stateKey].alias == projectSpecificationToLoad or
+                    @statesCache[stateKey].projectPath == projectSpecificationToLoad
+                        continue
+                    @processProjectRingViewProjectSelection @statesCache[stateKey]
+                    break
         catch error
             alert 'Could not load the project ring data for id: "' + @projectRingId + '" (' + error + ')'
             return
 
     saveProjectRing: ->
         return unless @projectRingId and not /^\s*$/.test(@projectRingId)
-        csonFilePath = @getProjectRingCSONFilePath()
+        csonFilePath = @getCSONFilePath()
         return unless csonFilePath and not /^\s*$/.test(csonFilePath)
         _cson = require 'season'
         try
+            @currentlySavingConfiguration.csonFile = true
             _cson.writeFileSync csonFilePath, @statesCache
         catch error
+            @currentlySavingConfiguration.csonFile = false
             alert 'Could not save the project ring data for id: "' + @projectRingId + '" (' + error + ')'
             return
 
@@ -185,8 +222,16 @@ module.exports =
         treeView = atom.packages.getLoadedPackage 'tree-view'
         return unless treeView;
         treeViewState = treeView.serialize()
-        alias = alias or atom.project.path
+        alias = alias or (require 'path').basename atom.project.path
         alias = '...' + alias.substr alias.length - 97 if alias.length > 100
+        aliases = []
+        (Object.keys @statesCache).forEach (projectPath) -> aliases.push projectPath
+        if alias in aliases
+            salt = 1
+            aliasTemp = alias + salt.toString()
+            while aliasTemp in aliases
+                aliasTemp = alias + (++salt).toString()
+            alias = aliasTemp
         if renameOnly
             if @statesCache[atom.project.path]
                 @statesCache[atom.project.path].alias = alias
@@ -290,11 +335,11 @@ module.exports =
     deleteProjectRing: ->
         return unless @projectRingId and not /^\s*$/.test(@projectRingId)
         @projectRingView.destroy() if @projectRingView
-        csonFilePath = @getProjectRingCSONFilePath()
-        pathFilePathForId = @getProjectRingPathFilePath @projectRingId
+        pathFilePath = @getPathFilePath()
+        csonFilePath = @getCSONFilePath()
         _fs = require 'fs'
         _fs.unlinkSync csonFilePath if _fs.existsSync csonFilePath
-        _fs.unlinkSync pathFilePathForId if _fs.existsSync pathFilePathForId
+        _fs.unlinkSync pathFilePath if _fs.existsSync pathFilePath
         @setProjectRing 'default'
 
     handleProjectRingViewKeydown: (keydownEvent, viewModeParameters, selectedItem) ->
@@ -377,10 +422,10 @@ module.exports =
             return
 
     editKeyBindings: ->
-        _path = require('path')
+        _path = require 'path'
         keyBindingsFilePath = _path.join \
             atom.packages.getLoadedPackage('project-ring').path, 'keymaps', 'project-ring.cson'
-        _fs = require('fs')
+        _fs = require 'fs'
         unless _fs.existsSync keyBindingsFilePath
             alert 'Could not find the default Project Ring key bindings file.'
             return

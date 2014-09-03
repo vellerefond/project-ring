@@ -19,3 +19,5 @@
 ## 0.4.0 - Implementation for moving a project root path to another location (the location must be properly initialized to avoid losing state)
 
 ## 0.5.0 - Implementation for "Project Ring: Edit Key Bindings" command palette option
+
+## 0.6.0 - Simple "Add" uses the base name as alias and configuration files are observed to keep the current project ring synchronized
