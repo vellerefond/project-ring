@@ -2,7 +2,6 @@
 
 module.exports =
 class ProjectRingView extends SelectListView
-    # statesCache is indexed by project path
     projectRing: null
 
     viewModeParameters: null

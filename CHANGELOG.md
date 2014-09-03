@@ -21,3 +21,5 @@
 ## 0.5.0 - Implementation for "Project Ring: Edit Key Bindings" command palette option
 
 ## 0.6.0 - Simple "Add" uses the base name as alias and configuration files are observed to keep the current project ring synchronized
+
+## 0.7.0 - Fixed Tree View handling

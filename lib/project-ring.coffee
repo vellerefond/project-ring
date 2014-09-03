@@ -24,7 +24,7 @@ module.exports =
         Object.freeze @projectRingInvariantState
         @currentlySavingConfiguration =
             csonFile: false
-        @setupSkipSavingProjectBuffersObservation()
+        @setupAutomaticProjectBuffersSaving()
         @setProjectRing 'default', atom.config.get 'project-ring.projectToLoadOnStartUp'
         atom.workspaceView.command "project-ring:add", => @add()
         atom.workspaceView.command "project-ring:add-as", => @addAs()
@@ -40,7 +40,7 @@ module.exports =
         atom.workspaceView.command "project-ring:move-project-path", => @setProjectPath true
         atom.workspaceView.command "project-ring:edit-key-bindings", => @editKeyBindings()
 
-    setupSkipSavingProjectBuffersObservation: ->
+    setupAutomaticProjectBuffersSaving: ->
         atom.config.observe 'project-ring.skipSavingProjectBuffers', null, (skipSavingProjectBuffers) =>
             if skipSavingProjectBuffers
                 atom.project.off 'buffer-created.project-ring'
@@ -290,9 +290,7 @@ module.exports =
     unlink: ->
         @projectRingView.destroy() if @projectRingView
         return unless atom.project.path and not /^\s*$/.test(atom.project.path)
-        treeView = atom.packages.getLoadedPackage 'tree-view'
-        return unless treeView;
-        treeView.deactivate()
+        (atom.packages.getLoadedPackage 'tree-view')?.mainModule.treeView?.detach?()
         atom.project.setPath null
 
     setProjectPath: (replace) ->
@@ -370,14 +368,16 @@ module.exports =
             return
         unless openProjectBuffersOnly
             treeView = atom.packages.getLoadedPackage 'tree-view'
-            return unless treeView;
-            treeView.deactivate()
+            treeView.mainModule.treeView?.detach?()
             atom.project.once 'path-changed', ->
                 return unless atom.project.path and not /^\s*$/.test(atom.project.path)
-                treeView.activate().done ->
-                    treeView.mainModule.activate projectState.treeViewState
-                    # ensure that we expand the proper folders
+                if treeView.mainModule.treeView and treeView.mainModule.treeView.updateRoot
                     treeView.mainModule.treeView.updateRoot(projectState.treeViewState.directoryExpansionStates)
+                    treeView.mainModule.treeView.show()
+                else
+                    treeView.activate().then ->
+                        treeView.mainModule.treeView.updateRoot(projectState.treeViewState.directoryExpansionStates)
+                        treeView.mainModule.treeView.show()
             atom.project.setPath projectState.projectPath
         unless not openProjectBuffersOnly and atom.config.get 'project-ring.skipOpeningProjectBuffers'
             if projectState.openBufferPaths and projectState.openBufferPaths.length
