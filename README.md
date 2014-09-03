@@ -30,4 +30,4 @@
 > ###### Use the toggle function to bring up a list of saved projects. There you can filter the list, delete a project by selecting it and typing alt-shift-delete. If a project path becomes invalid and you try to load it, it is automatically removed from the ring. If the appropriate configuration property, namely _Keep Only Project Buffers On Project Selection_, is set, then loading a project will close any unrelated buffers.
 
  - **Project Moving**:
-> ###### User the "Project Ring: Move Project Path" to move a project's root path to another location. This location **must** be properly initialized (e.g., all files copied under the new location) so as not to lose state.
+> ###### Use the "Project Ring: Move Project Path" to move a project's root path to another location. This location **must** be properly initialized (e.g., all files copied under the new location) so as not to lose state.
