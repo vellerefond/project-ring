@@ -276,7 +276,7 @@ module.exports =
         alias = '...' + alias.substr alias.length - 97 if alias.length > 100
         unless @statesCache[atom.project.path]
             aliases = []
-            (Object.keys @statesCache).forEach (projectPath) -> aliases.push @statesCache[projectPath].alias
+            (Object.keys @statesCache).forEach (projectPath) => aliases.push @statesCache[projectPath].alias
             if alias in aliases
                 salt = 1
                 aliasTemp = alias + salt.toString()
