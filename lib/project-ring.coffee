@@ -1,11 +1,15 @@
 module.exports =
-    projectRingInvariantState: null
-
     configDefaults:
+        filePatternToHide: null
+        filePatternToExcludeFromHiding: null
+        keepOnlyProjectBuffersOnProjectSelection: false
+        projectToLoadOnStartUp: null
         skipSavingProjectBuffers: false
         skipOpeningProjectBuffers: false
-        keepOnlyProjectBuffersOnProjectSelection: false,
-        projectToLoadOnStartUp: null
+        skipOpeningTreeViewWhenChangingProjectPath: false
+        useFilePatternHiding: false
+
+    projectRingInvariantState: null
 
     projectRingView: null
 
@@ -19,6 +23,7 @@ module.exports =
 
     activate: (state) ->
         @projectRingInvariantState =
+            regExpEscapesRegExp: /[\$\^\*\(\)\[\]\{\}\|\\\.\?\+]/g
             deletionDelay: 250
             configurationFileWatchInterval: 2500
         Object.freeze @projectRingInvariantState
@@ -26,6 +31,12 @@ module.exports =
             csonFile: false
         @setupAutomaticProjectBuffersSaving()
         @setProjectRing 'default', atom.config.get 'project-ring.projectToLoadOnStartUp'
+        atom.config.observe 'project-ring.useFilePatternHiding', null, (useFilePatternHiding) =>
+            @runFilePatternHiding useFilePatternHiding
+        atom.config.observe 'project-ring.filePatternToHide', null, (filePatternToHide) =>
+            @runFilePatternHiding()
+        atom.config.observe 'project-ring.filePatternToExcludeFromHiding', null, (filePatternToExcludeFromHiding) =>
+            @runFilePatternHiding()
         atom.workspaceView.command "project-ring:add", => @add()
         atom.workspaceView.command "project-ring:add-as", => @addAs()
         atom.workspaceView.command "project-ring:rename", => @addAs true
@@ -87,6 +98,45 @@ module.exports =
                                 openBufferPath.toLowerCase() == openProjectBuffer.file.path.toLowerCase())
                         @statesCache[atom.project.path].openBufferPaths.push openProjectBuffer.file.path
                         @saveProjectRing()
+
+    runFilePatternHiding: (useFilePatternHiding) ->
+        useFilePatternHiding =
+            if typeof useFilePatternHiding != 'undefined'
+            then useFilePatternHiding
+            else atom.config.get 'project-ring.useFilePatternHiding'
+        entries = atom.workspaceView.find('.tree-view > .directory > .entries').find('.directory, .file')
+        return unless entries.length
+        {$} = require 'atom'
+        if useFilePatternHiding
+            filePattern = atom.config.get 'project-ring.filePatternToHide'
+            if filePattern and not /^\s*$/.test filePattern
+                try
+                    filePattern = new RegExp filePattern, 'i'
+                catch error
+                    filePattern = null
+            else
+                filePattern = null
+            unless filePattern
+                @runFilePatternHiding false
+                return
+            reverseFilePattern = atom.config.get 'project-ring.filePatternToExcludeFromHiding'
+            if reverseFilePattern and not /^\s*$/.test reverseFilePattern
+                try
+                    reverseFilePattern = new RegExp reverseFilePattern, 'i'
+                catch error
+                    reverseFilePattern = null
+            else
+                reverseFilePattern = null
+            entries.each ->
+                $$ = $ @
+                fileName = $$.find('.name').text()
+                if (filePattern.test fileName) and not (reverseFilePattern and reverseFilePattern.test fileName)
+                    $$.removeAttr('data-project-ring-filtered').attr('data-project-ring-filtered', 'true').css 'display', 'none'
+                else
+                    $$.removeAttr('data-project-ring-filtered').css 'display', ''
+        else
+            (entries.filter -> $(@).attr('data-project-ring-filtered') == 'true').each ->
+                $(@).removeAttr('data-project-ring-filtered').css 'display', ''
 
     getConfigurationPath: ->
         _path = require 'path'
@@ -220,29 +270,33 @@ module.exports =
         @projectRingView.destroy() if @projectRingView
         return unless atom.project.path and not /^\s*$/.test(atom.project.path)
         treeView = atom.packages.getLoadedPackage 'tree-view'
-        return unless treeView;
+        return unless treeView
         treeViewState = treeView.serialize()
-        alias = alias or (require 'path').basename atom.project.path
+        alias = alias or @statesCache[atom.project.path]?.alias or (require 'path').basename atom.project.path
         alias = '...' + alias.substr alias.length - 97 if alias.length > 100
-        aliases = []
-        (Object.keys @statesCache).forEach (projectPath) -> aliases.push projectPath
-        if alias in aliases
-            salt = 1
-            aliasTemp = alias + salt.toString()
-            while aliasTemp in aliases
-                aliasTemp = alias + (++salt).toString()
-            alias = aliasTemp
+        unless @statesCache[atom.project.path]
+            aliases = []
+            (Object.keys @statesCache).forEach (projectPath) -> aliases.push @statesCache[projectPath].alias
+            if alias in aliases
+                salt = 1
+                aliasTemp = alias + salt.toString()
+                while aliasTemp in aliases
+                    aliasTemp = alias + (++salt).toString()
+                alias = aliasTemp
         if renameOnly
             if @statesCache[atom.project.path]
                 @statesCache[atom.project.path].alias = alias
                 @saveProjectRing()
             return
+        projectToLoadOnStartUp = atom.config.get 'project-ring.projectToLoadOnStartUp'
+        if @statesCache[atom.project.path] and \
+        (alias == projectToLoadOnStartUp or atom.project.path == projectToLoadOnStartUp)
+            atom.config.set 'project-ring.projectToLoadOnStartUp', alias
         currentProjectState =
             alias: alias
             projectPath: atom.project.path
             treeViewState: treeViewState
             openBufferPaths: @getOpenBufferPaths()
-        @statesCache = {} unless @statesCache
         @statesCache[atom.project.path] = currentProjectState
         @saveProjectRing()
 
@@ -304,6 +358,10 @@ module.exports =
                 return unless pathsToOpen.length
                 unless replace
                     @unlink()
+                    atom.project.once 'path-changed', ->
+                        return unless atom.project.path and not /^\s*$/.test(atom.project.path)
+                        unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
+                            (atom.packages.getLoadedPackage 'tree-view')?.mainModule.treeView?.show?()
                     atom.project.setPath pathsToOpen[0]
                     return
                 if @statesCache[atom.project.path]
@@ -311,7 +369,7 @@ module.exports =
                     @statesCache[pathsToOpen[0]].projectPath = pathsToOpen[0]
                     if @statesCache[pathsToOpen[0]].treeViewState
                         oldPathRE = new RegExp '^' + (atom.project.path.replace \
-                            /[\$\^\*\(\)\[\]\{\}\|\\\.\?\+]/g, (match) -> '\\' + match), 'i'
+                            @projectRingInvariantState.regExpEscapesRegExp, (match) -> '\\' + match), 'i'
                         if @statesCache[pathsToOpen[0]].treeViewState.selectedPath and
                         not /^\s*$/.test(@statesCache[pathsToOpen[0]].treeViewState.selectedPath)
                             @statesCache[pathsToOpen[0]].treeViewState.selectedPath =
@@ -368,16 +426,19 @@ module.exports =
             return
         unless openProjectBuffersOnly
             treeView = atom.packages.getLoadedPackage 'tree-view'
-            treeView.mainModule.treeView?.detach?()
-            atom.project.once 'path-changed', ->
+            atom.project.once 'path-changed', =>
                 return unless atom.project.path and not /^\s*$/.test(atom.project.path)
                 if treeView.mainModule.treeView and treeView.mainModule.treeView.updateRoot
                     treeView.mainModule.treeView.updateRoot(projectState.treeViewState.directoryExpansionStates)
-                    treeView.mainModule.treeView.show()
-                else
-                    treeView.activate().then ->
-                        treeView.mainModule.treeView.updateRoot(projectState.treeViewState.directoryExpansionStates)
+                    setTimeout (=> @runFilePatternHiding()), 0
+                    unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
                         treeView.mainModule.treeView.show()
+                else
+                    treeView.activate().then =>
+                        treeView.mainModule.treeView.updateRoot(projectState.treeViewState.directoryExpansionStates)
+                        setTimeout (=> @runFilePatternHiding()), 0
+                        unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
+                            treeView.mainModule.treeView.show()
             atom.project.setPath projectState.projectPath
         unless not openProjectBuffersOnly and atom.config.get 'project-ring.skipOpeningProjectBuffers'
             if projectState.openBufferPaths and projectState.openBufferPaths.length

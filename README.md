@@ -34,3 +34,6 @@
 
  - **Configuration Synchronization**:
 > ###### The configuration files are watched so that, e.g., adding, deleting or renaming a project in one window is reflected in all other windows.
+
+ - **File Hiding In Tree View Using Regular Expressions**:
+> ###### Use the corresponding configuration settings to setup a file name pattern and enable file hiding in tree view. These configuration settings are observed so as to reflect any changes on the tree view. The exclusion pattern is provided to _undo_ what the hiding pattern does for certain files. For example, to hide all files beginning with a "." (dot), simply enable the use of the hiding pattern and use the pattern "^\\.".

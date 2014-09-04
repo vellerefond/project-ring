@@ -23,3 +23,5 @@
 ## 0.6.0 - Simple "Add" uses the base name as alias and configuration files are observed to keep the current project ring synchronized
 
 ## 0.7.0 - Fixed Tree View handling
+
+## 0.8.0 - "Add" uses the preexisting alias if already set, implemented support for hiding files based on regular expression patterns and fixed tree view hiding/showing handling
