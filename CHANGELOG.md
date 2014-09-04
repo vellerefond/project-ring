@@ -27,3 +27,5 @@
 ## 0.8.0 - "Add" uses the preexisting alias if already set, implemented support for hiding files based on regular expression patterns and fixed tree view hiding/showing handling
 
 ## 0.8.1 - Fixed project alias computation code (was running without closure for "this")
+
+## 0.9.0 - Implementation for configuration option "project-ring.closePreviousProjectBuffers"

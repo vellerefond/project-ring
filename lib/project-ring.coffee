@@ -1,5 +1,6 @@
 module.exports =
     configDefaults:
+        closePreviousProjectBuffers: false
         filePatternToHide: null
         filePatternToExcludeFromHiding: null
         keepOnlyProjectBuffersOnProjectSelection: false
@@ -262,7 +263,7 @@ module.exports =
     getOpenBufferPaths: ->
         openBufferPaths = []
         unless atom.config.get 'project-ring.skipSavingProjectBuffers'
-            for buffer in (atom.project.buffers.filter (buffer) -> buffer.file)
+            (atom.project.buffers.filter (buffer) -> buffer.file).forEach (buffer) ->
                 openBufferPaths.push buffer.file.path
         openBufferPaths
 
@@ -275,8 +276,7 @@ module.exports =
         alias = alias or @statesCache[atom.project.path]?.alias or (require 'path').basename atom.project.path
         alias = '...' + alias.substr alias.length - 97 if alias.length > 100
         unless @statesCache[atom.project.path]
-            aliases = []
-            (Object.keys @statesCache).forEach (projectPath) => aliases.push @statesCache[projectPath].alias
+            aliases = (Object.keys @statesCache).map (projectPath) => @statesCache[projectPath].alias
             if alias in aliases
                 salt = 1
                 aliasTemp = alias + salt.toString()
@@ -376,8 +376,7 @@ module.exports =
                                 @statesCache[pathsToOpen[0]].treeViewState.selectedPath.replace \
                                     oldPathRE, pathsToOpen[0]
                         if @statesCache[pathsToOpen[0]].openBufferPaths.length
-                            newOpenBufferPaths = []
-                            @statesCache[pathsToOpen[0]].openBufferPaths.forEach (openBufferPath) ->
+                            newOpenBufferPaths = @statesCache[pathsToOpen[0]].openBufferPaths.map (openBufferPath) ->
                                 newOpenBufferPaths.push openBufferPath.replace oldPathRE, pathsToOpen[0]
                             @statesCache[pathsToOpen[0]].openBufferPaths = newOpenBufferPaths
                     delete @statesCache[atom.project.path]
@@ -424,7 +423,8 @@ module.exports =
             delete @statesCache[projectState.projectPath]
             @saveProjectRing()
             return
-        unless openProjectBuffersOnly
+        previousProjectPath = atom.project.path
+        unless openProjectBuffersOnly or projectState.projectPath == atom.project.path
             treeView = atom.packages.getLoadedPackage 'tree-view'
             atom.project.once 'path-changed', =>
                 return unless atom.project.path and not /^\s*$/.test(atom.project.path)
@@ -442,27 +442,43 @@ module.exports =
             atom.project.setPath projectState.projectPath
         unless not openProjectBuffersOnly and atom.config.get 'project-ring.skipOpeningProjectBuffers'
             if projectState.openBufferPaths and projectState.openBufferPaths.length
-                validOpenBufferPaths = projectState.openBufferPaths.filter (openBufferPath) ->
-                    _fs.existsSync(openBufferPath)
-                unless openProjectBuffersOnly or
-                    not atom.config.get 'project-ring.keepOnlyProjectBuffersOnProjectSelection'
-                        (atom.project.buffers.filter (buffer) ->
-                            not buffer.file or buffer.file.path not in validOpenBufferPaths).forEach (b) ->
-                                b.destroy()
-                unless projectState.openBufferPaths.length == validOpenBufferPaths.length or openProjectBuffersOnly
+                validOpenBufferPaths = (projectState.openBufferPaths.filter (openBufferPath) ->
+                    _fs.existsSync(openBufferPath))
+                unless openProjectBuffersOnly or \
+                not atom.config.get 'project-ring.keepOnlyProjectBuffersOnProjectSelection'
+                    atom.project.buffers.forEach (buffer) ->
+                        unless buffer.file and \
+                        (validOpenBufferPaths.find (validOpenBufferPath) ->
+                            validOpenBufferPath.toLowerCase() == buffer.file.path.toLowerCase())
+                                buffer.off 'destroyed.project-ring'
+                                buffer.destroy()
+                unless openProjectBuffersOnly or projectState.openBufferPaths.length == validOpenBufferPaths.length
                     @statesCache[projectState.projectPath].openBufferPaths = validOpenBufferPaths
                     @saveProjectRing()
-                currentlyOpenBufferPaths = []
-                @getOpenBufferPaths().forEach (openBufferPath) ->
-                    currentlyOpenBufferPaths.push openBufferPath.toLowerCase()
-                bufferPathsToOpen = []
-                for openBufferPath in (validOpenBufferPaths.filter (openBufferPath) ->
-                    openBufferPath.toLowerCase() not in currentlyOpenBufferPaths)
-                    bufferPathsToOpen.push openBufferPath
+                currentlyOpenBufferPaths = @getOpenBufferPaths().map (openBufferPath) ->
+                    openBufferPath.toLowerCase()
+                bufferPathsToOpen = validOpenBufferPaths.filter (validOpenBufferPath) ->
+                    validOpenBufferPath.toLowerCase() not in currentlyOpenBufferPaths
                 if bufferPathsToOpen.length
                     atom.open
                         pathsToOpen: bufferPathsToOpen
                         newWindow: false
+        if not openProjectBuffersOnly and \
+        previousProjectPath and \
+        previousProjectPath != atom.project.path and \
+        @statesCache[previousProjectPath] and \
+        atom.config.get 'project-ring.closePreviousProjectBuffers'
+            setTimeout (
+                    ->
+                        projectStateOpenBufferPaths = projectState.openBufferPaths.map (openBufferPath) ->
+                            openBufferPath.toLowerCase()
+                        (atom.project.buffers.filter (buffer) ->
+                            buffer.file and \
+                            buffer.file.path.toLowerCase() not in projectStateOpenBufferPaths).forEach (buffer) ->
+                                buffer.off 'destroyed.project-ring'
+                                buffer.destroy()
+                ),
+                250
 
     handleProjectRingInputViewInput: (viewModeParameters, data) ->
         switch viewModeParameters.viewMode
