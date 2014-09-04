@@ -39,3 +39,5 @@
 * If a project is updated while it is also the project that is loaded at startup, the "project-ring.projectToLoadOnStartUp" is updated accordingly.
 
 ###### 0.9.4 - Fix for the file hiding feature when changing project path
+
+###### 0.9.5 - Fix for the file hiding feature when loading a project at startup

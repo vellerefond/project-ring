@@ -229,6 +229,7 @@ module.exports =
                     @statesCache[stateKey].projectPath == projectSpecificationToLoad
                         continue
                     @processProjectRingViewProjectSelection @statesCache[stateKey]
+                    setTimeout (=> @runFilePatternHiding()), 0
                     break
         catch error
             alert 'Could not load the project ring data for id: "' + @projectRingId + '" (' + error + ')'
