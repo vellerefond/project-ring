@@ -132,7 +132,9 @@
                 $$ = $ @
                 fileName = $$.find('.name').text()
                 if (filePattern.test fileName) and not (reverseFilePattern and reverseFilePattern.test fileName)
-                    $$.removeAttr('data-project-ring-filtered').attr('data-project-ring-filtered', 'true').css 'display', 'none'
+                    $$.removeAttr('data-project-ring-filtered')\
+                        .attr('data-project-ring-filtered', 'true')\
+                        .css 'display', 'none'
                 else
                     $$.removeAttr('data-project-ring-filtered').css 'display', ''
         else
@@ -267,12 +269,17 @@
                 openBufferPaths.push buffer.file.path
         openBufferPaths
 
-    add: (alias, renameOnly) ->
+    add: (alias, renameOnly, updateTreeViewStateOnly) ->
         @projectRingView.destroy() if @projectRingView
         return unless atom.project.path and not /^\s*$/.test(atom.project.path)
         treeView = atom.packages.getLoadedPackage 'tree-view'
         return unless treeView
         treeViewState = treeView.serialize()
+        if updateTreeViewStateOnly
+            return unless @statesCache[atom.project.path]
+            @statesCache[atom.project.path].treeViewState = treeViewState
+            @saveProjectRing()
+            return
         alias = alias or @statesCache[atom.project.path]?.alias or (require 'path').basename atom.project.path
         alias = '...' + alias.substr alias.length - 97 if alias.length > 100
         unless @statesCache[atom.project.path]
@@ -436,7 +443,13 @@
                 else
                     treeView.activate().then =>
                         treeView.mainModule.treeView.updateRoot(projectState.treeViewState.directoryExpansionStates)
-                        setTimeout (=> @runFilePatternHiding()), 0
+                        setTimeout (
+                                =>
+                                    @runFilePatternHiding()
+                                    atom.workspaceView.find('.tree-view').on 'click keydown', (event) =>
+                                        setTimeout (=> @add undefined, undefined, true), 0
+                            ),
+                            0
                         unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
                             treeView.mainModule.treeView.show()
             atom.project.setPath projectState.projectPath
