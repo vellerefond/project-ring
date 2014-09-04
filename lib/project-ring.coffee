@@ -367,9 +367,10 @@ module.exports =
                 return unless pathsToOpen.length
                 unless replace
                     @unlink()
-                    atom.project.once 'path-changed', ->
+                    atom.project.once 'path-changed', =>
                         return unless atom.project.path and not /^\s*$/.test(atom.project.path)
                         unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
+                            setTimeout (=> @runFilePatternHiding()), 0
                             (atom.packages.getLoadedPackage 'tree-view')?.mainModule.treeView?.show?()
                     atom.project.setPath pathsToOpen[0]
                     return
