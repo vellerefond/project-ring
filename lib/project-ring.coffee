@@ -1,4 +1,4 @@
-module.exports =
+ module.exports =
     configDefaults:
         closePreviousProjectBuffers: false
         filePatternToHide: null
@@ -440,6 +440,26 @@ module.exports =
                         unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
                             treeView.mainModule.treeView.show()
             atom.project.setPath projectState.projectPath
+        if not openProjectBuffersOnly and \
+        previousProjectPath and \
+        previousProjectPath != atom.project.path and \
+        @statesCache[previousProjectPath] and \
+        atom.project.buffers.length and \
+        atom.config.get 'project-ring.closePreviousProjectBuffers'
+            atom.project.once 'buffer-created.project-ring', =>
+                setTimeout (
+                        ->
+                            projectStateOpenBufferPaths = projectState.openBufferPaths.map (openBufferPath) ->
+                                openBufferPath.toLowerCase()
+                            (atom.project.buffers.filter (buffer) ->
+                                buffer.file and \
+                                buffer.file.path.toLowerCase() not in projectStateOpenBufferPaths).forEach (buffer) ->
+                                    buffer.off 'destroyed.project-ring'
+                                    buffer.destroy()
+                    ),
+                    @projectRingInvariantState.deletionDelay
+            unless projectState.openBufferPaths.length
+                atom.workspaceView.triggerHandler 'application:new-file'
         unless not openProjectBuffersOnly and atom.config.get 'project-ring.skipOpeningProjectBuffers'
             if projectState.openBufferPaths and projectState.openBufferPaths.length
                 validOpenBufferPaths = (projectState.openBufferPaths.filter (openBufferPath) ->
@@ -463,22 +483,6 @@ module.exports =
                     atom.open
                         pathsToOpen: bufferPathsToOpen
                         newWindow: false
-        if not openProjectBuffersOnly and \
-        previousProjectPath and \
-        previousProjectPath != atom.project.path and \
-        @statesCache[previousProjectPath] and \
-        atom.config.get 'project-ring.closePreviousProjectBuffers'
-            setTimeout (
-                    ->
-                        projectStateOpenBufferPaths = projectState.openBufferPaths.map (openBufferPath) ->
-                            openBufferPath.toLowerCase()
-                        (atom.project.buffers.filter (buffer) ->
-                            buffer.file and \
-                            buffer.file.path.toLowerCase() not in projectStateOpenBufferPaths).forEach (buffer) ->
-                                buffer.off 'destroyed.project-ring'
-                                buffer.destroy()
-                ),
-                250
 
     handleProjectRingInputViewInput: (viewModeParameters, data) ->
         switch viewModeParameters.viewMode

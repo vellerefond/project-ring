@@ -29,3 +29,5 @@
 ## 0.8.1 - Fixed project alias computation code (was running without closure for "this")
 
 ## 0.9.0 - Implementation for configuration option "project-ring.closePreviousProjectBuffers"
+
+## 0.9.1 - Fixed "project-ring.closePreviousProjectBuffers" timing bug
