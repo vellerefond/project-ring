@@ -6,15 +6,20 @@ class ProjectRingView extends SelectListView
 
     viewModeParameters: null
 
+    isInitialized: false
+
     initialize: (projectRing) ->
         super
         @projectRing = @projectRing or projectRing
-        @addClass('project-ring overlay from-top')
+        @addClass 'project-ring overlay from-top'
 
     serialize: ->
 
     attach: (viewModeParameters, items, titleKey, descriptionKey) ->
         @viewModeParameters = viewModeParameters
+        unless @isInitialized
+            @filterEditorView.on 'keydown', (keydownEvent) => @onKeydown keydownEvent
+            @isInitialized = true
         itemsArray = []
         for key, i in (Object.keys items).sort()
             index = (i + 1).toString()
@@ -26,9 +31,8 @@ class ProjectRingView extends SelectListView
                 'data': items[key]
             }
         @setItems itemsArray
-        atom.workspaceView.append(@)
+        atom.workspaceView.append @
         @filterEditorView.setPlaceholderText @viewModeParameters.placeholderText
-        @filterEditorView.off('keydown').on 'keydown', (keydownEvent) => @onKeydown keydownEvent
         @filterEditorView.focus()
 
     getEmptyMessage: (itemCount, filteredItemCount) =>
@@ -40,7 +44,6 @@ class ProjectRingView extends SelectListView
                 @div class: 'project-ring-item-title', index + ": " + title
                 unless title == description
                     @div class: 'project-ring-item-description', description
-
 
     getFilterKey: ->
         'query'

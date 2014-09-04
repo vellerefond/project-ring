@@ -1,4 +1,4 @@
- module.exports =
+module.exports =
     configDefaults:
         closePreviousProjectBuffers: false
         filePatternToHide: null
@@ -290,15 +290,17 @@
                 while aliasTemp in aliases
                     aliasTemp = alias + (++salt).toString()
                 alias = aliasTemp
+        projectToLoadOnStartUp = atom.config.get 'project-ring.projectToLoadOnStartUp'
+        if @statesCache[atom.project.path] and \
+        (@statesCache[atom.project.path].alias == projectToLoadOnStartUp or \
+        atom.project.path == projectToLoadOnStartUp) and \
+        alias != @statesCache[atom.project.path].alias
+            atom.config.set 'project-ring.projectToLoadOnStartUp', alias
         if renameOnly
             if @statesCache[atom.project.path]
                 @statesCache[atom.project.path].alias = alias
                 @saveProjectRing()
             return
-        projectToLoadOnStartUp = atom.config.get 'project-ring.projectToLoadOnStartUp'
-        if @statesCache[atom.project.path] and \
-        (alias == projectToLoadOnStartUp or atom.project.path == projectToLoadOnStartUp)
-            atom.config.set 'project-ring.projectToLoadOnStartUp', alias
         currentProjectState =
             alias: alias
             projectPath: atom.project.path
@@ -468,6 +470,7 @@
                                 buffer.file and \
                                 buffer.file.path.toLowerCase() not in projectStateOpenBufferPaths).forEach (buffer) ->
                                     buffer.off 'destroyed.project-ring'
+                                    buffer.save()
                                     buffer.destroy()
                     ),
                     @projectRingInvariantState.deletionDelay
@@ -484,6 +487,7 @@
                         (validOpenBufferPaths.find (validOpenBufferPath) ->
                             validOpenBufferPath.toLowerCase() == buffer.file.path.toLowerCase())
                                 buffer.off 'destroyed.project-ring'
+                                buffer.save()
                                 buffer.destroy()
                 unless openProjectBuffersOnly or projectState.openBufferPaths.length == validOpenBufferPaths.length
                     @statesCache[projectState.projectPath].openBufferPaths = validOpenBufferPaths

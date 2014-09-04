@@ -33,3 +33,7 @@
 ###### 0.9.1 - Fixed "project-ring.closePreviousProjectBuffers" timing bug
 
 ###### 0.9.2 - Fixed Tree View state saving support
+
+###### 0.9.3 - Code performance and logic fixes
+* Better list view initialization
+* If a project is updated while it is also the project that is loaded at startup, the "project-ring.projectToLoadOnStartUp" is updated accordingly.
