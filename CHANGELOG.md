@@ -41,3 +41,5 @@
 ###### 0.9.4 - Fix for the file hiding feature when changing project path
 
 ###### 0.9.5 - Fix for the file hiding feature when loading a project at startup
+
+###### 0.9.6 - Minor code enhancement for the file hiding feature

@@ -101,45 +101,49 @@ module.exports =
                         @saveProjectRing()
 
     runFilePatternHiding: (useFilePatternHiding) ->
-        useFilePatternHiding =
-            if typeof useFilePatternHiding != 'undefined'
-            then useFilePatternHiding
-            else atom.config.get 'project-ring.useFilePatternHiding'
-        entries = atom.workspaceView.find('.tree-view > .directory > .entries').find('.directory, .file')
-        return unless entries.length
-        {$} = require 'atom'
-        if useFilePatternHiding
-            filePattern = atom.config.get 'project-ring.filePatternToHide'
-            if filePattern and not /^\s*$/.test filePattern
-                try
-                    filePattern = new RegExp filePattern, 'i'
-                catch error
-                    filePattern = null
-            else
-                filePattern = null
-            unless filePattern
-                @runFilePatternHiding false
-                return
-            reverseFilePattern = atom.config.get 'project-ring.filePatternToExcludeFromHiding'
-            if reverseFilePattern and not /^\s*$/.test reverseFilePattern
-                try
-                    reverseFilePattern = new RegExp reverseFilePattern, 'i'
-                catch error
-                    reverseFilePattern = null
-            else
-                reverseFilePattern = null
-            entries.each ->
-                $$ = $ @
-                fileName = $$.find('.name').text()
-                if (filePattern.test fileName) and not (reverseFilePattern and reverseFilePattern.test fileName)
-                    $$.removeAttr('data-project-ring-filtered')\
-                        .attr('data-project-ring-filtered', 'true')\
-                        .css 'display', 'none'
-                else
-                    $$.removeAttr('data-project-ring-filtered').css 'display', ''
-        else
-            (entries.filter -> $(@).attr('data-project-ring-filtered') == 'true').each ->
-                $(@).removeAttr('data-project-ring-filtered').css 'display', ''
+        setTimeout (
+                =>
+                    useFilePatternHiding =
+                        if typeof useFilePatternHiding != 'undefined'
+                        then useFilePatternHiding
+                        else atom.config.get 'project-ring.useFilePatternHiding'
+                    entries = atom.workspaceView.find('.tree-view > .directory > .entries').find('.directory, .file')
+                    return unless entries.length
+                    {$} = require 'atom'
+                    if useFilePatternHiding
+                        filePattern = atom.config.get 'project-ring.filePatternToHide'
+                        if filePattern and not /^\s*$/.test filePattern
+                            try
+                                filePattern = new RegExp filePattern, 'i'
+                            catch error
+                                filePattern = null
+                        else
+                            filePattern = null
+                        unless filePattern
+                            @runFilePatternHiding false
+                            return
+                        reverseFilePattern = atom.config.get 'project-ring.filePatternToExcludeFromHiding'
+                        if reverseFilePattern and not /^\s*$/.test reverseFilePattern
+                            try
+                                reverseFilePattern = new RegExp reverseFilePattern, 'i'
+                            catch error
+                                reverseFilePattern = null
+                        else
+                            reverseFilePattern = null
+                        entries.each ->
+                            $$ = $ @
+                            fileName = $$.find('.name').text()
+                            if (filePattern.test fileName) and not (reverseFilePattern and reverseFilePattern.test fileName)
+                                $$.removeAttr('data-project-ring-filtered')\
+                                    .attr('data-project-ring-filtered', 'true')\
+                                    .css 'display', 'none'
+                            else
+                                $$.removeAttr('data-project-ring-filtered').css 'display', ''
+                    else
+                        (entries.filter -> $(@).attr('data-project-ring-filtered') == 'true').each ->
+                            $(@).removeAttr('data-project-ring-filtered').css 'display', ''
+            ),
+            0
 
     getConfigurationPath: ->
         _path = require 'path'
@@ -229,7 +233,7 @@ module.exports =
                     @statesCache[stateKey].projectPath == projectSpecificationToLoad
                         continue
                     @processProjectRingViewProjectSelection @statesCache[stateKey]
-                    setTimeout (=> @runFilePatternHiding()), 0
+                    @runFilePatternHiding()
                     break
         catch error
             alert 'Could not load the project ring data for id: "' + @projectRingId + '" (' + error + ')'
@@ -371,7 +375,7 @@ module.exports =
                     atom.project.once 'path-changed', =>
                         return unless atom.project.path and not /^\s*$/.test(atom.project.path)
                         unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
-                            setTimeout (=> @runFilePatternHiding()), 0
+                            @runFilePatternHiding()
                             (atom.packages.getLoadedPackage 'tree-view')?.mainModule.treeView?.show?()
                     atom.project.setPath pathsToOpen[0]
                     return
@@ -441,7 +445,7 @@ module.exports =
                 return unless atom.project.path and not /^\s*$/.test(atom.project.path)
                 if treeView.mainModule.treeView and treeView.mainModule.treeView.updateRoot
                     treeView.mainModule.treeView.updateRoot(projectState.treeViewState.directoryExpansionStates)
-                    setTimeout (=> @runFilePatternHiding()), 0
+                    @runFilePatternHiding()
                     unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
                         treeView.mainModule.treeView.show()
                 else
