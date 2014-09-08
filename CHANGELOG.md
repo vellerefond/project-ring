@@ -45,3 +45,5 @@
 ###### 0.9.6 - Minor code enhancement for the file hiding feature
 
 ###### 0.10.0 - Implementation for keeping an internal, queryable state as to whether there is a currently loaded project or not
+
+###### 0.10.1 - Fixed the file pattern hiding implementation to refresh the filtered items when collapsing/expanding a folder

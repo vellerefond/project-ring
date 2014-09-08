@@ -33,7 +33,30 @@ module.exports =
         @currentlySavingConfiguration =
             csonFile: false
         @setupAutomaticProjectBuffersSaving()
-        @setProjectRing 'default', atom.config.get 'project-ring.projectToLoadOnStartUp'
+        treeView = atom.packages.getLoadedPackage 'tree-view'
+        unless treeView and treeView.mainModule.treeView
+            treeView.activate().then =>
+                setTimeout (
+                        =>
+                            atom.workspaceView.find('.tree-view').on 'click keydown', (event) =>
+                                setTimeout (
+                                    =>
+                                        @add undefined, undefined, true
+                                        @runFilePatternHiding()
+                                    ),
+                                    0
+                            @setProjectRing 'default', atom.config.get 'project-ring.projectToLoadOnStartUp'
+                    ),
+                    0
+        else
+            atom.workspaceView.find('.tree-view').on 'click keydown', (event) =>
+                setTimeout (
+                    =>
+                        @add undefined, undefined, true
+                        @runFilePatternHiding()
+                    ),
+                    0
+            @setProjectRing 'default', atom.config.get 'project-ring.projectToLoadOnStartUp'
         atom.config.observe 'project-ring.useFilePatternHiding', null, (useFilePatternHiding) =>
             @runFilePatternHiding useFilePatternHiding
         atom.config.observe 'project-ring.filePatternToHide', null, (filePatternToHide) =>
@@ -290,7 +313,6 @@ module.exports =
         @projectRingView.destroy() if @projectRingView
         return unless atom.project.path and not /^\s*$/.test(atom.project.path)
         treeView = atom.packages.getLoadedPackage 'tree-view'
-        return unless treeView
         treeViewState = treeView.serialize()
         if updateTreeViewStateOnly
             return unless @hasLoadedProject and @statesCache[atom.project.path]
@@ -468,23 +490,10 @@ module.exports =
             treeView = atom.packages.getLoadedPackage 'tree-view'
             atom.project.once 'path-changed', =>
                 return unless atom.project.path and not /^\s*$/.test(atom.project.path)
-                if treeView.mainModule.treeView and treeView.mainModule.treeView.updateRoot
-                    treeView.mainModule.treeView.updateRoot(projectState.treeViewState.directoryExpansionStates)
-                    @runFilePatternHiding()
-                    unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
-                        treeView.mainModule.treeView.show()
-                else
-                    treeView.activate().then =>
-                        treeView.mainModule.treeView.updateRoot(projectState.treeViewState.directoryExpansionStates)
-                        setTimeout (
-                                =>
-                                    @runFilePatternHiding()
-                                    atom.workspaceView.find('.tree-view').on 'click keydown', (event) =>
-                                        setTimeout (=> @add undefined, undefined, true), 0
-                            ),
-                            0
-                        unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
-                            treeView.mainModule.treeView.show()
+                treeView.mainModule.treeView.updateRoot(projectState.treeViewState.directoryExpansionStates)
+                @runFilePatternHiding()
+                unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
+                    treeView.mainModule.treeView.show()
             atom.project.setPath projectState.projectPath
         if not openProjectBuffersOnly and \
             previousProjectPath and \
