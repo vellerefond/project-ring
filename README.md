@@ -1,6 +1,6 @@
 # Project Ring
 
-- ### **Description**:
+- ### Description
 
  #### Project management for the Atom editor.
 
