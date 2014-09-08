@@ -43,3 +43,5 @@
 ###### 0.9.5 - Fix for the file hiding feature when loading a project at startup
 
 ###### 0.9.6 - Minor code enhancement for the file hiding feature
+
+###### 0.10.0 - Implementation for keeping an internal, queryable state as to whether there is a currently loaded project or not
