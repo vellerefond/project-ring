@@ -519,7 +519,7 @@ module.exports =
             @statesCache[previousProjectPath] and \
             atom.project.buffers.length and \
             atom.config.get 'project-ring.closePreviousProjectBuffers'
-                atom.project.once 'buffer-created.project-ring', =>
+                atom.project.once 'buffer-created.project-ring buffer-created-forced.project-ring', (bufferCreated) =>
                     setTimeout (
                             ->
                                 projectStateOpenBufferPaths = projectState.openBufferPaths.map (openBufferPath) ->
@@ -533,8 +533,11 @@ module.exports =
                                             buffer.destroy()
                         ),
                         @projectRingInvariantState.deletionDelay
-                unless projectState.openBufferPaths.length
-                    atom.workspaceView.triggerHandler 'application:new-file'
+                unless projectState.openBufferPaths.length or \
+                    (atom.project.buffers.find (buffer) -> not buffer.file)
+                        atom.workspaceView.triggerHandler 'application:new-file'
+                else
+                    atom.project.emit('buffer-created-forced.project-ring')
         if openProjectBuffersOnly or not atom.config.get 'project-ring.skipOpeningProjectBuffers'
             if projectState.openBufferPaths and projectState.openBufferPaths.length
                 validOpenBufferPaths = (projectState.openBufferPaths.filter (openBufferPath) ->

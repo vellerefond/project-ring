@@ -51,3 +51,5 @@
 ###### 0.11.0 - File pattern hiding now matches file paths before file names
 
 ###### 0.11.1 - Implemented updating the order of open buffers
+
+###### 0.11.2 - Fixed spawning logic of new empty file in case of the "project-ring.closePreviousProjectBuffers" configuration option
