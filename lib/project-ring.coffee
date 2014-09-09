@@ -42,7 +42,7 @@ module.exports =
                             atom.workspaceView.find('.tree-view').on 'click keydown', (event) =>
                                 setTimeout (
                                         =>
-                                            @add undefined, undefined, true
+                                            @add null, false, true
                                             @runFilePatternHiding()
                                     ),
                                     0
@@ -53,7 +53,7 @@ module.exports =
             atom.workspaceView.find('.tree-view').on 'click keydown', (event) =>
                 setTimeout (
                         =>
-                            @add undefined, undefined, true
+                            @add null, false, true
                             @runFilePatternHiding()
                     ),
                     0
@@ -135,6 +135,12 @@ module.exports =
                                 openBufferPath.toLowerCase() == openProjectBuffer.file.path.toLowerCase())
                         @statesCache[atom.project.path].openBufferPaths.push openProjectBuffer.file.path
                         @saveProjectRing()
+        setTimeout (
+                =>
+                    atom.workspaceView.find('.tab-bar').on 'drop', =>
+                        setTimeout (=> @add null, false, false, true), 0
+            ),
+            0
 
     runFilePatternHiding: (useFilePatternHiding) ->
         setTimeout (
@@ -309,19 +315,25 @@ module.exports =
             @projectRingInputView = new ProjectRingInputView(@) unless @projectRingInputView
 
     getOpenBufferPaths: ->
-        openBufferPaths = []
         unless atom.config.get 'project-ring.skipSavingProjectBuffers'
-            (atom.project.buffers.filter (buffer) -> buffer.file).forEach (buffer) ->
-                openBufferPaths.push buffer.file.path
-        openBufferPaths
+            return \
+                (atom.workspace.getEditors().filter (editor) ->
+                    editor.buffer.file).map (editor) ->
+                        editor.buffer.file.path
+        return []
 
-    add: (alias, renameOnly, updateTreeViewStateOnly) ->
+    add: (alias, renameOnly, updateTreeViewStateOnly, updateOpenBufferPathsOnly) ->
         @projectRingView.destroy() if @projectRingView
         return unless atom.project.path and not /^\s*$/.test(atom.project.path)
         treeViewState = atom.packages.getLoadedPackage('tree-view')?.serialize()
         if updateTreeViewStateOnly
             return unless @hasLoadedProject and @statesCache[atom.project.path]
             @statesCache[atom.project.path].treeViewState = treeViewState
+            @saveProjectRing()
+            return
+        if updateOpenBufferPathsOnly
+            return unless @hasLoadedProject and @statesCache[atom.project.path]
+            @statesCache[atom.project.path].openBufferPaths = @getOpenBufferPaths()
             @saveProjectRing()
             return
         alias = alias or @statesCache[atom.project.path]?.alias or (require 'path').basename atom.project.path
@@ -499,6 +511,7 @@ module.exports =
                 @runFilePatternHiding()
                 unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
                     treeView?.mainModule.treeView?.show?()
+                @hasLoadedProject = true
             atom.project.setPath projectState.projectPath
         if not openProjectBuffersOnly and \
             previousProjectPath and \
@@ -544,13 +557,11 @@ module.exports =
                 bufferPathsToOpen = validOpenBufferPaths.filter (validOpenBufferPath) ->
                     validOpenBufferPath.toLowerCase() not in currentlyOpenBufferPaths
                 if bufferPathsToOpen.length
-                    atom.open
-                        pathsToOpen: bufferPathsToOpen
-                        newWindow: false
+                    atom.open pathsToOpen: bufferPathsToOpen, newWindow: false
                     if isDefault
-                        atom.project.on 'buffer-created.processProjectRingViewProjectSelection', (bufferCreated) =>
+                        atom.project.on 'buffer-created.project-ring-remove-empty', (bufferCreated) =>
                             return unless bufferCreated.file
-                            atom.project.off 'buffer-created.processProjectRingViewProjectSelection'
+                            atom.project.off 'buffer-created.project-ring-remove-empty'
                             setTimeout (
                                     ->
                                         (atom.project.buffers.filter (buffer) ->
@@ -560,7 +571,6 @@ module.exports =
                                                 buffer.destroy()
                                 ),
                                 @projectRingInvariantState.emptyBufferDestroyDelayOnStartup
-        @hasLoadedProject = true
 
     handleProjectRingInputViewInput: (viewModeParameters, data) ->
         switch viewModeParameters.viewMode
@@ -589,6 +599,4 @@ module.exports =
         unless _fs.existsSync keyBindingsFilePath
             alert 'Could not find the default Project Ring key bindings file.'
             return
-        atom.open
-            pathsToOpen: [ keyBindingsFilePath ]
-            newWindow: false
+        atom.open pathsToOpen: [ keyBindingsFilePath ], newWindow: false

@@ -49,3 +49,5 @@
 ###### 0.10.1 - Fixed the file pattern hiding implementation to refresh the filtered items when collapsing/expanding a folder
 
 ###### 0.11.0 - File pattern hiding now matches file paths before file names
+
+###### 0.11.1 - Implemented updating the order of open buffers
