@@ -13,7 +13,7 @@
 
  - ##### Adding a project in one of Atom's windows is visible in other windows as well.
 
- - ##### It is possible to use a regular expression to filter the entries of the tree view to hide. You can provide _anti-patterns_ as well to omit certain entries. This works whether or not a project has been loaded from the project ring so that it can be used regardless of any other usage of the package.
+ - ##### It is possible to use a regular expression to filter the entries of the tree view to hide. The pattern is first matched against the file's path and then against the file's name. You can provide an _anti-pattern_ as well to prevent certain entries from being hidden. This works whether or not a project has been loaded from the project ring so that it can be used regardless of any other usage of the package.
 
  - ##### Easily change between projects using an _Alt-Tab_ logic.
 

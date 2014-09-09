@@ -26,6 +26,7 @@ module.exports =
 
     activate: (state) ->
         @projectRingInvariantState =
+            emptyBufferDestroyDelayOnStartup: 750
             regExpEscapesRegExp: /[\$\^\*\(\)\[\]\{\}\|\\\.\?\+]/g
             deletionDelay: 250
             configurationFileWatchInterval: 2500
@@ -34,15 +35,15 @@ module.exports =
             csonFile: false
         @setupAutomaticProjectBuffersSaving()
         treeView = atom.packages.getLoadedPackage 'tree-view'
-        unless treeView and treeView.mainModule.treeView
+        unless treeView?.mainModule.treeView?.updateRoot
             treeView.activate().then =>
                 setTimeout (
                         =>
                             atom.workspaceView.find('.tree-view').on 'click keydown', (event) =>
                                 setTimeout (
-                                    =>
-                                        @add undefined, undefined, true
-                                        @runFilePatternHiding()
+                                        =>
+                                            @add undefined, undefined, true
+                                            @runFilePatternHiding()
                                     ),
                                     0
                             @setProjectRing 'default', atom.config.get 'project-ring.projectToLoadOnStartUp'
@@ -51,9 +52,9 @@ module.exports =
         else
             atom.workspaceView.find('.tree-view').on 'click keydown', (event) =>
                 setTimeout (
-                    =>
-                        @add undefined, undefined, true
-                        @runFilePatternHiding()
+                        =>
+                            @add undefined, undefined, true
+                            @runFilePatternHiding()
                     ),
                     0
             @setProjectRing 'default', atom.config.get 'project-ring.projectToLoadOnStartUp'
@@ -167,11 +168,16 @@ module.exports =
                             reverseFilePattern = null
                         entries.each ->
                             $$ = $ @
-                            fileName = $$.find('.name').text()
-                            if (filePattern.test fileName) and not (reverseFilePattern and reverseFilePattern.test fileName)
-                                $$.removeAttr('data-project-ring-filtered')\
-                                    .attr('data-project-ring-filtered', 'true')\
-                                    .css 'display', 'none'
+                            $fileMetadata = $$.find('.name')
+                            filePath = $fileMetadata.attr('data-path')
+                            fileName = $fileMetadata.text()
+                            if ((filePattern.test filePath) and \
+                                not (reverseFilePattern and reverseFilePattern.test filePath)) or \
+                                ((filePattern.test fileName) and \
+                                not (reverseFilePattern and reverseFilePattern.test fileName))
+                                    $$.removeAttr('data-project-ring-filtered')\
+                                        .attr('data-project-ring-filtered', 'true')\
+                                        .css 'display', 'none'
                             else
                                 $$.removeAttr('data-project-ring-filtered').css 'display', ''
                     else
@@ -267,7 +273,7 @@ module.exports =
                     unless @statesCache[stateKey].alias == projectSpecificationToLoad or
                     @statesCache[stateKey].projectPath == projectSpecificationToLoad
                         continue
-                    @processProjectRingViewProjectSelection @statesCache[stateKey]
+                    @processProjectRingViewProjectSelection @statesCache[stateKey], false, true
                     @runFilePatternHiding()
                     break
         catch error
@@ -312,8 +318,7 @@ module.exports =
     add: (alias, renameOnly, updateTreeViewStateOnly) ->
         @projectRingView.destroy() if @projectRingView
         return unless atom.project.path and not /^\s*$/.test(atom.project.path)
-        treeView = atom.packages.getLoadedPackage 'tree-view'
-        treeViewState = treeView.serialize()
+        treeViewState = atom.packages.getLoadedPackage('tree-view')?.serialize()
         if updateTreeViewStateOnly
             return unless @hasLoadedProject and @statesCache[atom.project.path]
             @statesCache[atom.project.path].treeViewState = treeViewState
@@ -478,7 +483,7 @@ module.exports =
                 then (@processProjectRingViewProjectSelection data, viewModeParameters.openProjectBuffersOnly); \
                         break
 
-    processProjectRingViewProjectSelection: (projectState, openProjectBuffersOnly) ->
+    processProjectRingViewProjectSelection: (projectState, openProjectBuffersOnly, isDefault) ->
         return unless projectState
         _fs = require 'fs'
         unless _fs.existsSync projectState.projectPath
@@ -490,10 +495,10 @@ module.exports =
             treeView = atom.packages.getLoadedPackage 'tree-view'
             atom.project.once 'path-changed', =>
                 return unless atom.project.path and not /^\s*$/.test(atom.project.path)
-                treeView.mainModule.treeView.updateRoot(projectState.treeViewState.directoryExpansionStates)
+                treeView?.mainModule.treeView?.updateRoot?(projectState.treeViewState.directoryExpansionStates)
                 @runFilePatternHiding()
                 unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
-                    treeView.mainModule.treeView.show()
+                    treeView?.mainModule.treeView?.show?()
             atom.project.setPath projectState.projectPath
         if not openProjectBuffersOnly and \
             previousProjectPath and \
@@ -542,6 +547,19 @@ module.exports =
                     atom.open
                         pathsToOpen: bufferPathsToOpen
                         newWindow: false
+                    if isDefault
+                        atom.project.on 'buffer-created.processProjectRingViewProjectSelection', (bufferCreated) =>
+                            return unless bufferCreated.file
+                            atom.project.off 'buffer-created.processProjectRingViewProjectSelection'
+                            setTimeout (
+                                    ->
+                                        (atom.project.buffers.filter (buffer) ->
+                                            not buffer.file and buffer.cachedText == '').forEach (buffer) ->
+                                                return if bufferCreated == buffer
+                                                buffer.off 'destroyed.project-ring'
+                                                buffer.destroy()
+                                ),
+                                @projectRingInvariantState.emptyBufferDestroyDelayOnStartup
         @hasLoadedProject = true
 
     handleProjectRingInputViewInput: (viewModeParameters, data) ->
