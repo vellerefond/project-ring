@@ -53,3 +53,5 @@
 ###### 0.11.1 - Implemented updating the order of open buffers
 
 ###### 0.11.2 - Fixed spawning logic of new empty file in case of the "project-ring.closePreviousProjectBuffers" configuration option
+
+###### 0.11.3 - Fixed the tree view handling for when it is not activated or hidden

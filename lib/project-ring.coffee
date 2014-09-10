@@ -39,7 +39,8 @@ module.exports =
             treeView.activate().then =>
                 setTimeout (
                         =>
-                            atom.workspaceView.find('.tree-view').on 'click keydown', (event) =>
+                            treeView.mainModule.createView()
+                            treeView.mainModule.treeView.find('.tree-view').on 'click keydown', (event) =>
                                 setTimeout (
                                         =>
                                             @add null, false, true
@@ -50,7 +51,7 @@ module.exports =
                     ),
                     0
         else
-            atom.workspaceView.find('.tree-view').on 'click keydown', (event) =>
+            treeView.mainModule.treeView.find('.tree-view').on 'click keydown', (event) =>
                 setTimeout (
                         =>
                             @add null, false, true
@@ -64,6 +65,7 @@ module.exports =
             @runFilePatternHiding()
         atom.config.observe 'project-ring.filePatternToExcludeFromHiding', null, (filePatternToExcludeFromHiding) =>
             @runFilePatternHiding()
+        atom.workspaceView.command 'tree-view:toggle', => @runFilePatternHiding()
         atom.workspaceView.command "project-ring:add", => @add()
         atom.workspaceView.command "project-ring:add-as", => @addAs()
         atom.workspaceView.command "project-ring:rename", => @addAs true
@@ -149,7 +151,8 @@ module.exports =
                         if typeof useFilePatternHiding != 'undefined'
                         then useFilePatternHiding
                         else atom.config.get 'project-ring.useFilePatternHiding'
-                    entries = atom.workspaceView.find('.tree-view > .directory > .entries').find('.directory, .file')
+                    entries = atom.packages.getLoadedPackage('tree-view')?.mainModule.treeView?.\
+                        find('.tree-view > .directory > .entries').find('.directory, .file') ? []
                     return unless entries.length
                     {$} = require 'atom'
                     if useFilePatternHiding
