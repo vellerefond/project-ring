@@ -1,4 +1,4 @@
-{$, $$, View, SelectListView} = require 'atom'
+{$$, SelectListView} = require 'atom'
 
 module.exports =
 class ProjectRingView extends SelectListView
@@ -42,7 +42,7 @@ class ProjectRingView extends SelectListView
         $$ ->
             @li class: 'project-ring-item', =>
                 @div class: 'project-ring-item-title', index + ": " + title
-                unless title == description
+                unless title is description
                     @div class: 'project-ring-item-description', description
 
     getFilterKey: ->

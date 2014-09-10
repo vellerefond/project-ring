@@ -110,10 +110,11 @@ module.exports =
                                         @statesCache and \
                                         @statesCache[atom.project.path]
                                     if (@statesCache[atom.project.path].openBufferPaths.find (openBufferPath) ->
-                                            openBufferPath.toLowerCase() == bufferDestroyed.file.path.toLowerCase())
+                                            openBufferPath.toLowerCase() is bufferDestroyed.file.path.toLowerCase())
                                         @statesCache[atom.project.path].openBufferPaths =
                                             @statesCache[atom.project.path].openBufferPaths.filter (openBufferPath) =>
-                                                openBufferPath.toLowerCase() != bufferDestroyed.file.path.toLowerCase()
+                                                openBufferPath.toLowerCase() isnt \
+                                                    bufferDestroyed.file.path.toLowerCase()
                                         @saveProjectRing()
                             ),
                             @projectRingInvariantState.deletionDelay
@@ -129,14 +130,10 @@ module.exports =
                         'destroyed.project-ring', \
                         onBufferDestroyedProjectRingEventHandlerFactory openProjectBuffer
                     return unless \
-                        @hasLoadedProject and \
                         atom.project.path and \
-                        @statesCache and \
-                        @statesCache[atom.project.path]
-                    unless (@statesCache[atom.project.path].openBufferPaths.find (openBufferPath) ->
-                                openBufferPath.toLowerCase() == openProjectBuffer.file.path.toLowerCase())
-                        @statesCache[atom.project.path].openBufferPaths.push openProjectBuffer.file.path
-                        @saveProjectRing()
+                        (new RegExp '^' + (@turnToPathRegExp atom.project.path), 'i').test \
+                            openProjectBuffer.file.path
+                    @addOpenBufferPathToProject openProjectBuffer.file.path
         setTimeout (
                 =>
                     atom.workspaceView.find('.tab-bar').on 'drop', =>
@@ -148,7 +145,7 @@ module.exports =
         setTimeout (
                 =>
                     useFilePatternHiding =
-                        if typeof useFilePatternHiding != 'undefined'
+                        if typeof useFilePatternHiding isnt 'undefined'
                         then useFilePatternHiding
                         else atom.config.get 'project-ring.useFilePatternHiding'
                     entries = atom.packages.getLoadedPackage('tree-view')?.mainModule.treeView?.\
@@ -190,14 +187,14 @@ module.exports =
                             else
                                 $$.removeAttr('data-project-ring-filtered').css 'display', ''
                     else
-                        (entries.filter -> $(@).attr('data-project-ring-filtered') == 'true').each ->
+                        (entries.filter -> $(@).attr('data-project-ring-filtered') is 'true').each ->
                             $(@).removeAttr('data-project-ring-filtered').css 'display', ''
             ),
             0
 
     getConfigurationPath: ->
         _path = require 'path'
-        path = _path.join process.env[if process.platform == 'win32' then 'USERPROFILE' else 'HOME'],
+        path = _path.join process.env[if process.platform is 'win32' then 'USERPROFILE' else 'HOME'],
             '.atom-project-ring'
         _fs = require 'fs'
         _fs.mkdirSync path unless _fs.existsSync path
@@ -279,9 +276,10 @@ module.exports =
             not /^\s*$/.test(projectSpecificationToLoad) and
             @statesCache
                 for stateKey in Object.keys @statesCache
-                    unless @statesCache[stateKey].alias == projectSpecificationToLoad or
-                    @statesCache[stateKey].projectPath == projectSpecificationToLoad
-                        continue
+                    unless \
+                        @statesCache[stateKey].alias is projectSpecificationToLoad or \
+                        @statesCache[stateKey].projectPath is projectSpecificationToLoad
+                            continue
                     @processProjectRingViewProjectSelection @statesCache[stateKey], false, true
                     @runFilePatternHiding()
                     break
@@ -325,6 +323,31 @@ module.exports =
                         editor.buffer.file.path
         return []
 
+    turnToPathRegExp: (path) ->
+        return '' unless path
+        path.replace @projectRingInvariantState.regExpEscapesRegExp, (match) -> '\\' + match
+
+    addOpenBufferPathToProject: (newOpenBufferPath) ->
+        return unless \
+            @hasLoadedProject and \
+            atom.project.path and \
+            @statesCache and \
+            @statesCache[atom.project.path]
+        newOpenBufferPath = newOpenBufferPath.toLowerCase()
+        unless (@statesCache[atom.project.path].openBufferPaths.find (openBufferPath) ->
+            openBufferPath.toLowerCase() is newOpenBufferPath)
+                atom.workspace.once 'editor-created', =>
+                    setTimeout (
+                        =>
+                            newOpenBufferPaths = @getOpenBufferPaths().filter (openBufferPathInAll) =>
+                                openBufferPathInAll.toLowerCase() is newOpenBufferPath or \
+                                    @statesCache[atom.project.path].openBufferPaths.find (openBufferPath) ->
+                                        openBufferPath.toLowerCase() is openBufferPathInAll.toLowerCase()
+                            @statesCache[atom.project.path].openBufferPaths = newOpenBufferPaths
+                            @saveProjectRing()
+                    ),
+                    0
+
     add: (alias, renameOnly, updateTreeViewStateOnly, updateOpenBufferPathsOnly) ->
         @projectRingView.destroy() if @projectRingView
         return unless atom.project.path and not /^\s*$/.test(atom.project.path)
@@ -351,9 +374,9 @@ module.exports =
                 alias = aliasTemp
         projectToLoadOnStartUp = atom.config.get 'project-ring.projectToLoadOnStartUp'
         if @statesCache[atom.project.path] and \
-            (@statesCache[atom.project.path].alias == projectToLoadOnStartUp or \
-            atom.project.path == projectToLoadOnStartUp) and \
-            alias != @statesCache[atom.project.path].alias
+            (@statesCache[atom.project.path].alias is projectToLoadOnStartUp or \
+            atom.project.path is projectToLoadOnStartUp) and \
+            alias isnt @statesCache[atom.project.path].alias
                 atom.config.set 'project-ring.projectToLoadOnStartUp', alias
         if renameOnly
             return unless @hasLoadedProject
@@ -376,7 +399,7 @@ module.exports =
             alias = atom.project.path
             if @statesCache[atom.project.path]
             then (
-                if @statesCache[atom.project.path].alias == @statesCache[atom.project.path].projectPath
+                if @statesCache[atom.project.path].alias is @statesCache[atom.project.path].projectPath
                 then alias = (require 'path').basename @statesCache[atom.project.path].projectPath
                 else alias = @statesCache[atom.project.path].alias
             )
@@ -387,9 +410,10 @@ module.exports =
             }, 'Project alias', alias
 
     toggle: (openProjectBuffersOnly) ->
-        deleteKeyBinding = atom.keymap.getKeyBindings().find (keyBinding) -> keyBinding.command == 'project-ring:add'
+        deleteKeyBinding = atom.keymap.getKeyBindings().find (keyBinding) -> keyBinding.command is 'project-ring:add'
         if deleteKeyBinding
-        then deleteKeyBinding = ' (delete selected: ' + deleteKeyBinding.keystrokes.split(/\s+/)[0].replace(/-[^-]+$/, '-') + 'delete)'
+        then deleteKeyBinding = \
+            ' (delete selected: ' + deleteKeyBinding.keystrokes.split(/\s+/)[0].replace(/-[^-]+$/, '-') + 'delete)'
         else deleteKeyBinding = ''
         if @projectRingView and @projectRingView.hasParent()
             @projectRingView.destroy()
@@ -443,8 +467,7 @@ module.exports =
                     @statesCache[pathsToOpen[0]] = @statesCache[atom.project.path]
                     @statesCache[pathsToOpen[0]].projectPath = pathsToOpen[0]
                     if @statesCache[pathsToOpen[0]].treeViewState
-                        oldPathRE = new RegExp '^' + (atom.project.path.replace \
-                            @projectRingInvariantState.regExpEscapesRegExp, (match) -> '\\' + match), 'i'
+                        oldPathRE = new RegExp '^' + (@turnToPathRegExp atom.project.path), 'i'
                         if @statesCache[pathsToOpen[0]].treeViewState.selectedPath and
                         not /^\s*$/.test(@statesCache[pathsToOpen[0]].treeViewState.selectedPath)
                             @statesCache[pathsToOpen[0]].treeViewState.selectedPath =
@@ -452,7 +475,7 @@ module.exports =
                                     oldPathRE, pathsToOpen[0]
                         if @statesCache[pathsToOpen[0]].openBufferPaths.length
                             newOpenBufferPaths = @statesCache[pathsToOpen[0]].openBufferPaths.map (openBufferPath) ->
-                                newOpenBufferPaths.push openBufferPath.replace oldPathRE, pathsToOpen[0]
+                                openBufferPath.replace oldPathRE, pathsToOpen[0]
                             @statesCache[pathsToOpen[0]].openBufferPaths = newOpenBufferPaths
                     delete @statesCache[atom.project.path]
                 atom.project.setPath pathsToOpen[0]
@@ -476,10 +499,10 @@ module.exports =
     handleProjectRingViewKeydown: (keydownEvent, viewModeParameters, selectedItem) ->
         return unless keydownEvent and selectedItem
         # alt-shift-delete
-        if viewModeParameters.viewMode == 'project' and
+        if viewModeParameters.viewMode is 'project' and
         keydownEvent.altKey and
         keydownEvent.shiftKey and
-        keydownEvent.which == 46
+        keydownEvent.which is 46
             @processProjectRingViewProjectDeletion selectedItem.data
 
     processProjectRingViewProjectDeletion: (projectState) ->
@@ -487,7 +510,7 @@ module.exports =
         @projectRingView.destroy() if @projectRingView
         if atom.project.path and \
             @statesCache[projectState.projectPath] and \
-            projectState.projectPath == atom.project.path
+            projectState.projectPath is atom.project.path
                 @hasLoadedProject = false
         delete @statesCache[projectState.projectPath]
         @saveProjectRing()
@@ -506,56 +529,69 @@ module.exports =
             @saveProjectRing()
             return
         previousProjectPath = atom.project.path
-        unless openProjectBuffersOnly or projectState.projectPath == atom.project.path
-            treeView = atom.packages.getLoadedPackage 'tree-view'
-            atom.project.once 'path-changed', =>
-                return unless atom.project.path and not /^\s*$/.test(atom.project.path)
-                treeView?.mainModule.treeView?.updateRoot?(projectState.treeViewState.directoryExpansionStates)
-                @runFilePatternHiding()
-                unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
-                    treeView?.mainModule.treeView?.show?()
+        unless openProjectBuffersOnly
+            unless projectState.projectPath is atom.project.path
+                treeView = atom.packages.getLoadedPackage 'tree-view'
+                atom.project.once 'path-changed', =>
+                    return unless atom.project.path and not /^\s*$/.test(atom.project.path)
+                    treeView?.mainModule.treeView?.updateRoot?(projectState.treeViewState.directoryExpansionStates)
+                    @runFilePatternHiding()
+                    unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
+                        treeView?.mainModule.treeView?.show?()
+                    @hasLoadedProject = true
+                atom.project.setPath projectState.projectPath
+            else
                 @hasLoadedProject = true
-            atom.project.setPath projectState.projectPath
         if not openProjectBuffersOnly and \
             previousProjectPath and \
-            previousProjectPath != atom.project.path and \
+            previousProjectPath isnt atom.project.path and \
             @statesCache[previousProjectPath] and \
             atom.project.buffers.length and \
             atom.config.get 'project-ring.closePreviousProjectBuffers'
                 atom.project.once 'buffer-created.project-ring buffer-created-forced.project-ring', (bufferCreated) =>
                     setTimeout (
-                            ->
+                            =>
                                 projectStateOpenBufferPaths = projectState.openBufferPaths.map (openBufferPath) ->
                                     openBufferPath.toLowerCase()
+                                previousProjectStateOpenBufferPaths = \
+                                    @statesCache[previousProjectPath].openBufferPaths.map (openBufferPath) ->
+                                        openBufferPath.toLowerCase()
                                 (atom.project.buffers.filter (buffer) ->
-                                    buffer.file and \
-                                    buffer.file.path.toLowerCase() \
-                                        not in projectStateOpenBufferPaths).forEach (buffer) ->
+                                    bufferPath = buffer.file?.path.toLowerCase()
+                                    bufferPath and \
+                                    bufferPath in previousProjectStateOpenBufferPaths and \
+                                    bufferPath not in projectStateOpenBufferPaths).forEach (buffer) ->
                                             buffer.off 'destroyed.project-ring'
                                             buffer.save()
                                             buffer.destroy()
                         ),
                         @projectRingInvariantState.deletionDelay
+                ###
                 unless projectState.openBufferPaths.length or \
                     (atom.project.buffers.find (buffer) -> not buffer.file)
                         atom.workspaceView.triggerHandler 'application:new-file'
                 else
                     atom.project.emit('buffer-created-forced.project-ring')
+                ###
+                atom.project.emit('buffer-created-forced.project-ring')
         if openProjectBuffersOnly or not atom.config.get 'project-ring.skipOpeningProjectBuffers'
             if projectState.openBufferPaths and projectState.openBufferPaths.length
                 validOpenBufferPaths = (projectState.openBufferPaths.filter (openBufferPath) ->
                     _fs.existsSync(openBufferPath))
-                unless openProjectBuffersOnly or \
+                unless \
+                    openProjectBuffersOnly or \
                     not atom.config.get 'project-ring.keepOnlyProjectBuffersOnProjectSelection'
                         atom.project.buffers.forEach (buffer) ->
-                            unless buffer.file and \
-                            (validOpenBufferPaths.find (validOpenBufferPath) ->
-                                validOpenBufferPath.toLowerCase() == buffer.file.path.toLowerCase())
-                                    buffer.off 'destroyed.project-ring'
-                                    buffer.save()
-                                    buffer.destroy()
-                unless openProjectBuffersOnly or \
-                    projectState.openBufferPaths.length == validOpenBufferPaths.length
+                            unless \
+                                buffer.file and \
+                                (validOpenBufferPaths.find (validOpenBufferPath) ->
+                                    validOpenBufferPath.toLowerCase() is buffer.file.path.toLowerCase())
+                                        buffer.off 'destroyed.project-ring'
+                                        buffer.save()
+                                        buffer.destroy()
+                unless \
+                    openProjectBuffersOnly or \
+                    projectState.openBufferPaths.length is validOpenBufferPaths.length
                         @statesCache[projectState.projectPath].openBufferPaths = validOpenBufferPaths
                         @saveProjectRing()
                 currentlyOpenBufferPaths = @getOpenBufferPaths().map (openBufferPath) ->
@@ -571,8 +607,8 @@ module.exports =
                             setTimeout (
                                     ->
                                         (atom.project.buffers.filter (buffer) ->
-                                            not buffer.file and buffer.cachedText == '').forEach (buffer) ->
-                                                return if bufferCreated == buffer
+                                            not buffer.file and buffer.cachedText is '').forEach (buffer) ->
+                                                return if bufferCreated is buffer
                                                 buffer.off 'destroyed.project-ring'
                                                 buffer.destroy()
                                 ),
@@ -587,7 +623,8 @@ module.exports =
         @add alias, renameOnly
 
     copy: (copyKey) ->
-        return unless @hasLoadedProject and
+        return unless \
+            @hasLoadedProject and
             atom.project.path and
             not /^\s*$/.test(atom.project.path) and
             @statesCache[atom.project.path]?[copyKey]
