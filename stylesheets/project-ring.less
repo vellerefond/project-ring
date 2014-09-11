@@ -8,16 +8,118 @@
 
 .project-ring-item {
 	overflow: hidden;
-}
 
-.project-ring-item-title {
-	float: left;
-	font-size: 15px;
-}
+	.project-ring-item-title {
+		float: left;
+		font-size: 15px;
+	}
 
-.project-ring-item-description {
-	float: right;
-	font-size: 12px;
+	.project-ring-item-description {
+		float: right;
+		font-size: 12px;
+	}
 }
 
 .project-ring-input {}
+
+.project-ring-buffer-select {
+	.controls {
+		min-height: 32px;
+		margin-bottom: 5px;
+	}
+
+	.controls input[type="button"] {
+		background: transparent;
+		border: solid 2px #CECECE;
+		border-radius: 15px;
+		color: #5D5D5D;
+		font-size: 1.1em;
+	}
+
+	.controls input[type="button"].left {
+		float: left;
+		margin: 5px 15px 5px 5px;
+	}
+
+	.controls input[type="button"].right {
+		float: right;
+		margin: 5px 5px 5px 15px;
+	}
+
+	.controls input[type="button"]:hover {
+		border-color: #9E9E9E;
+		color: #0D0D0D;
+	}
+
+	.entries {
+		max-height: 350px;
+		overflow-x: hidden;
+		overflow-y: auto;
+		padding: 5px;
+
+		.entry {
+			position: relative;
+			padding: 5px;
+			border: solid 1px #CECECE;
+			font-size: 1.1em;
+		}
+
+		input[type='checkbox'] {
+		    -webkit-font-smoothing: antialiased;
+		    text-rendering: optimizeSpeed;
+		    width: 15px;
+		    height: 15px;
+		    margin: 0px;
+		    display: block;
+		    float: left;
+		    position: relative;
+		    cursor:pointer;
+		}
+
+		input[type='checkbox']:after {
+		    content:"";
+		    vertical-align: middle;
+		    text-align: center;
+		    line-height: 15px;
+		    position: absolute;
+		    cursor: pointer;
+		    height: 15px;
+		    width: 15px;
+		    left: 0px;
+		    top: 0px;
+		    font-size:10px;
+		    background: #FDFDFD;
+		}
+
+		input[type='checkbox']:hover:after,
+		input[type='checkbox']:checked:after {
+			content:'\2714';
+		}
+
+		input[type='checkbox']:hover:after {
+		    color: #6A6A6A;
+		}
+
+		input[type='checkbox']:checked:after {
+		    color: #000000;
+		}
+
+		.title, .description {
+			display: inline-block;
+		}
+
+		.title {
+			padding-left: 15px;
+		}
+
+		.description {
+			position: absolute;
+			right: 0px;
+			padding-right: 15px;
+		}
+	}
+
+	.entries .empty {
+		font-size: 1.2em;
+	}
+}
