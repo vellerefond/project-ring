@@ -17,5 +17,5 @@
     'alt-shift-=': 'project-ring:add-as'
     'alt-shift-/': 'project-ring:rename'
     'alt-\\': 'project-ring:toggle'
-    'alt-shift-.': 'project-ring:open-project-buffers'
+    'alt-shift-.': 'project-ring:open-project-files'
     'ctrl-shift-/': 'project-ring:delete'

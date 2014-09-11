@@ -21,7 +21,6 @@
 - ### Clarifications
 
  - Atom has the notion of a project path which is the currently open folder (if a folder had been previously opened). When refering to this path I will use the term _Atom's project path_. This is in contrast to a _project_ fron the point of view of this package. The latter is the former plus some state.
- - A _buffer_ in this README refers to a _file_.
 
 
 - ### Usage per package commands
@@ -29,7 +28,7 @@
 
  - #### Adding/renaming/removing a project to/in/from the project ring:
 
-    - **_Add_** adds the current project to the project ring using as an alias, by default, the basename part or its path. The resources currently saved are the project's path (obviously :-) ), the tree view state (e.g., which folders are expanded) and the open buffers (files) at the time of the invokation, minus the empty default files that Atom creates (empty, _untitled_ files). Using this command again updates all the resources of the project using the same alias.
+    - **_Add_** adds the current project to the project ring using as an alias, by default, the basename part or its path. The resources currently saved are the project's path (obviously :-) ), the tree view state (e.g., which folders are expanded) and the open files at the time of the invokation, minus the empty default files that Atom creates (empty, _untitled_ files). Using this command again updates all the resources of the project using the same alias.
 
     - **_Add As_** functions exactly the same way as **_Add_** but instead of using the default project alias, an input field pops up that allows you to enter the desired alias. Invoking the same command again simply gives the opportunity to refresh the project's state in the ring and to change its alias at the same time.
 
@@ -39,9 +38,9 @@
 
  - #### Choosing a project to load in Atom:
 
-    - **_Toggle_** displays a list with all the projects currently in the project ring and a mini editor above to filter this list. You can choose a project either by filtering and typing enter or by clicking on it. These actions load its state in Atom. In particular, Atom's project path will be set to that of the chosen project's, the tree view state will be updated to reflect the expanded folders as when it was last saved and the project's associated buffers (files) will be opened.
+    - **_Toggle_** displays a list with all the projects currently in the project ring and a mini editor above to filter this list. You can choose a project either by filtering and typing enter or by clicking on it. These actions load its state in Atom. In particular, Atom's project path will be set to that of the chosen project's, the tree view state will be updated to reflect the expanded folders as when it was last saved and the project's associated files will be opened.
 
-    - **_Open Project Buffers_** opens a project buffers (_of course..._ :-) ) but does not actually load the chosen project. This means that the current project will remain _current_ and the tree view will remain as is. This feature is usefull to _append_ one project's buffers to another project. This means that the opened buffers will be saved along with the current project's buffers (if a project had been previously loaded). To simply _view_ a project's buffers without actually saving them in a project, use the **_Unlink_** command (see below).
+    - **_Open Project Files_** opens a project's files (_of course..._ :-) ) but does not actually load the chosen project. This means that the current project will remain _current_ and the tree view will remain as is. This feature is usefull to _append_ one project's files to another project. This means that the opened files will be saved along with the current project's files (if a project had been previously loaded). To simply _view_ a project's files without actually saving them in a project, use the **_Unlink_** command (see below).
 
  - #### Manipulating Atom's project path
 
@@ -49,11 +48,11 @@
 
     - **_Set Project Path_** first unlinks Atom from the current project path and then uses the user provider folder path to do an _Open Folder..._. After this one could use **_Add_** or **_Add As_** to create a new project at this path.
 
-    - **_Move Project Path_** _moves_ the current project's root path to another location. It is exactly as if one did a **_Set Project Path_**, set up the tree view to the state it had before and opened the same buffers using the new project root path as the basepath. This leaves the alias unaffected. **[ Note:** The project's resources must be replicated in order for this to work due to the automatic saving of a project's state. **]**
+    - **_Move Project Path_** _moves_ the current project's root path to another location. It is exactly as if one did a **_Set Project Path_**, set up the tree view to the state it had before and opened the same files using the new project root path as the basepath. This leaves the alias unaffected. **[ Note:** The project's resources must be replicated in order for this to work due to the automatic saving of a project's state. **]**
 
  - #### Other commands
 
-    - **_Edit Key Bindings_** opens a buffer, with the package's key bindings file, for you to edit at will. After editing this file you should use the command _Window: Reload_ from the command palette or restart Atom.
+    - **_Edit Key Bindings_** opens a file, with the package's key bindings file, for you to edit at will. After editing this file you should use the command _Window: Reload_ from the command palette or restart Atom.
 
     - **_Copy Project Alias_** copies the current project's alias to the OS clipboard.
 
@@ -64,7 +63,7 @@
 
 - ### Explanation of the configuration options
 
- - **_Close Previous Project Buffers:_** If cheched, then loading a project which has buffers to open, will result in closing the previously loaded project's open buffers.
+ - **_Close Previous Project Files:_** If cheched, then loading a project which has files to open, will result in closing the previously loaded project's open files.
 
  - **_File Pattern To Hide:_** This is a JavaScript RegExp pattern with which to decide what to hide in the tree view. A typical usage is to hide every folder beginning with a "." (dot). So one could write _"^\\."_ (without the quotes) in this field.
 
@@ -72,12 +71,12 @@
 
  - **_Use File Pattern Hiding:_** Turns on/off the file pattern hiding feature. To quickly turn off the feature while, at the same, leaving the contents of **_File Pattern To Hide_** intact, uncheck this field.
 
- - **_Keep Only Project Buffers On Project Selection:_** If checked, when loading a project that has buffers for opening, all other, unrelated buffers will be closed.
+ - **_Keep Only Project Files On Project Selection:_** If checked, when loading a project that has files for opening, all other, unrelated files will be closed.
 
  - **_Project To Load On StartUp:_** Give a project's alias of project root path in this field to have it automatically load when Atom starts. When renaming a project and if this project was the one specified in this field, then this field is automatically updated to contains the project's new alias.
 
- - **_Skip Saving Project Buffers:_** If checked, then opening/closing buffers will not be reflected in the project's state. This implied **_Skip Opening Project Buffers_**.
+ - **_Skip Saving Project Files:_** If checked, then opening/closing files will not be reflected in the project's state. This implied **_Skip Opening Project Files_**.
 
- - **_Skip Opening Project Buffers:_** If checked, then a project's buffers will not be opened when the project is loaded. Automatic buffer saving still works though.
+ - **_Skip Opening Project Files:_** If checked, then a project's files will not be opened when the project is loaded. Automatic file saving still works though.
 
  - **_Skip Opening Tree View When Changing Project Path:_** If checked, then the tree view will not automatically opened (if it was previously hidden) when a changing from project to project (e.g., via **_Toggle_**) or setting a new project path (e.g., via **_Set Project Path_**).

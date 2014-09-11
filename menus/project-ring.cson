@@ -6,7 +6,7 @@
         'Project Ring: Rename Project': 'project-ring:rename'
         'Project Ring: Delete From Ring': 'project-ring:delete'
         'Project Ring: Toggle Ring': 'project-ring:toggle'
-        'Project Ring: Open Project Buffers': 'project-ring:open-project-buffers'
+        'Project Ring: Open Project Files': 'project-ring:open-project-files'
         'Project Ring: Unlink Current Project': 'project-ring:unlink'
         'Project Ring: Unlink And Set Project Path': 'project-ring:set-project-path'
         'Project Ring: Delete Current Project Ring Data': 'project-ring:delete-project-ring'
@@ -26,7 +26,7 @@
                 { 'label': 'Rename', 'command': 'project-ring:rename' },
                 { 'label': 'Delete', 'command': 'project-ring:delete' },
                 { 'label': 'Toggle', 'command': 'project-ring:toggle' },
-                { 'label': 'Open Project Buffers', 'command': 'project-ring:open-project-buffers' },
+                { 'label': 'Open Project Files', 'command': 'project-ring:open-project-files' },
                 { 'label': 'Unlink', 'command': 'project-ring:unlink' },
                 { 'label': 'Set Project Path', 'command': 'project-ring:set-project-path' },
                 { 'label': 'Delete Current Project Ring', 'command': 'project-ring:delete-project-ring' },
