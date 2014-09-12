@@ -75,8 +75,8 @@ module.exports =
         atom.workspaceView.command "project-ring:rename", => @addAs true
         atom.workspaceView.command "project-ring:toggle", => @toggle()
         atom.workspaceView.command "project-ring:open-project-files", => @toggle true
-        atom.workspaceView.command "project-ring:add-file-to-project", => @addOpenBufferPathToProject()
-        atom.workspaceView.command "project-ring:add-files-to-project", => @addFilesToProject()
+        atom.workspaceView.command "project-ring:add-current-file-to-project", => @addOpenBufferPathToProject()
+        atom.workspaceView.command "project-ring:add-files-to-current-project", => @addFilesToProject()
         atom.workspaceView.command "project-ring:delete", => @delete()
         atom.workspaceView.command "project-ring:unlink", => @unlink()
         atom.workspaceView.command "project-ring:set-project-path", => @setProjectPath()
@@ -91,30 +91,16 @@ module.exports =
             if skipSavingProjectFiles
                 atom.project.off 'buffer-created.project-ring'
                 atom.project.buffers.forEach (buffer) -> buffer.off 'destroyed.project-ring'
-                return unless \
-                    @inProject and \
-                    atom.project.path and \
-                    @statesCache and \
-                    @statesCache[atom.project.path]
+                return unless @inProject
                 @statesCache[atom.project.path].openBufferPaths = []
                 @saveProjectRing()
             else
                 onBufferDestroyedProjectRingEventHandlerFactory = (bufferDestroyed) =>
                     =>
-                        return unless \
-                            @inProject and \
-                            bufferDestroyed.file and \
-                            atom.project.path and \
-                            @statesCache and \
-                            @statesCache[atom.project.path]
+                        return unless @inProject and bufferDestroyed.file
                         setTimeout (
                                 =>
-                                    return unless \
-                                        @inProject and \
-                                        bufferDestroyed.file and \
-                                        atom.project.path and \
-                                        @statesCache and \
-                                        @statesCache[atom.project.path]
+                                    return unless @inProject and bufferDestroyed.file
                                     if (@statesCache[atom.project.path].openBufferPaths.find (openBufferPath) ->
                                             openBufferPath.toLowerCase() is bufferDestroyed.file.path.toLowerCase())
                                         @statesCache[atom.project.path].openBufferPaths =
@@ -339,11 +325,7 @@ module.exports =
         path.replace @projectRingInvariantState.regExpEscapesRegExp, (match) -> '\\' + match
 
     addOpenBufferPathToProject: (openBufferPathToAdd, now) ->
-        return unless \
-            @inProject and \
-            atom.project.path and \
-            @statesCache and \
-            @statesCache[atom.project.path]
+        return unless @inProject
         deferedAddition = if openBufferPathToAdd and not now then true else false
         openBufferPathToAdd = atom.workspace.getActiveEditor()?.buffer.file?.path unless openBufferPathToAdd
         return unless openBufferPathToAdd
@@ -364,20 +346,17 @@ module.exports =
                 unless deferedAddition
                     atom.workspace.emit 'editor-created-forced.project-ring'
 
-    removeOpenBufferPathFromProject: (openBufferPathToRemove) ->
-        ;
-
     add: (alias, renameOnly, updateTreeViewStateOnly, updateOpenBufferPathPositionsOnly) ->
         @projectRingView.destroy() if @projectRingView
         return unless atom.project.path and not /^\s*$/.test atom.project.path
         treeViewState = atom.packages.getLoadedPackage('tree-view')?.serialize()
         if updateTreeViewStateOnly
-            return unless @inProject and @statesCache[atom.project.path]
+            return unless @inProject
             @statesCache[atom.project.path].treeViewState = treeViewState
             @saveProjectRing()
             return
         if updateOpenBufferPathPositionsOnly
-            return unless @inProject and @statesCache[atom.project.path]
+            return unless @inProject
             currentProjectOpenBufferPaths = @statesCache[atom.project.path].openBufferPaths.map (openBufferPath) ->
                 openBufferPath.toLowerCase()
             @statesCache[atom.project.path].openBufferPaths = @getOpenBufferPaths().filter (openBufferPath) ->
@@ -451,7 +430,7 @@ module.exports =
             }, @statesCache, 'alias', 'projectPath'
 
     addFilesToProject: ->
-        return unless @inProject and @statesCache[atom.project.path]
+        return unless @inProject
         @loadProjectRingBufferSelectView()
         unless @projectRingBufferSelectView.hasParent()
             bufferPathsToOfferForAddition = []
@@ -495,8 +474,7 @@ module.exports =
         @projectRingView.destroy() if @projectRingView
         return unless atom.project.path and not /^\s*$/.test atom.project.path
         @statesCache = {} unless @statesCache
-        if @inProject and @statesCache[atom.project.path]
-            @inProject = false
+        @inProject = false if @inProject
         delete @statesCache[atom.project.path]
         @saveProjectRing()
 
@@ -690,7 +668,6 @@ module.exports =
     copy: (copyKey) ->
         return unless \
             @inProject and \
-            atom.project.path and \
             not /^\s*$/.test(atom.project.path) and \
             @statesCache[atom.project.path]?[copyKey]
         try

@@ -7,8 +7,8 @@
         'Project Ring: Delete From Ring': 'project-ring:delete'
         'Project Ring: Toggle Ring': 'project-ring:toggle'
         'Project Ring: Open Project Files': 'project-ring:open-project-files'
-        'Project Ring: Add File To Project': 'project-ring:add-file-to-project'
-        'Project Ring: Add Files To Project': 'project-ring:add-files-to-project'
+        'Project Ring: Add Current File To Project': 'project-ring:add-current-file-to-project'
+        'Project Ring: Add Files To Current Project': 'project-ring:add-files-to-current-project'
         'Project Ring: Unlink Current Project': 'project-ring:unlink'
         'Project Ring: Unlink And Set Project Path': 'project-ring:set-project-path'
         'Project Ring: Delete Current Project Ring Data': 'project-ring:delete-project-ring'
@@ -29,8 +29,8 @@
                 { 'label': 'Delete', 'command': 'project-ring:delete' },
                 { 'label': 'Toggle', 'command': 'project-ring:toggle' },
                 { 'label': 'Open Project Files', 'command': 'project-ring:open-project-files' },
-                { 'label': 'Add File To Project', 'command': 'project-ring:add-file-to-project' },
-                { 'label': 'Add Files To Project', 'command': 'project-ring:add-files-to-project' },
+                { 'label': 'Add Current File To Project', 'command': 'project-ring:add-current-file-to-project' },
+                { 'label': 'Add Files To Current Project', 'command': 'project-ring:add-files-to-current-project' },
                 { 'label': 'Unlink', 'command': 'project-ring:unlink' },
                 { 'label': 'Set Project Path', 'command': 'project-ring:set-project-path' },
                 { 'label': 'Delete Current Project Ring', 'command': 'project-ring:delete-project-ring' },

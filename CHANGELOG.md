@@ -55,3 +55,8 @@
 ###### 0.11.2 - Fixed spawning logic of new empty file in case of the "project-ring.closePreviousProjectBuffers" configuration option
 
 ###### 0.11.3 - Fixed the tree view handling for when it is not activated or hidden
+
+###### 0.12.0 - Implemented "Add Current File To Project" and "Add Files To Current Project" support
+* Add current file to project support
+* Add files to current project support: open files and other projects' files
+* Various important and minor bug fixes

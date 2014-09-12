@@ -42,6 +42,12 @@
 
     - **_Open Project Files_** opens a project's files (_of course..._ :-) ) but does not actually load the chosen project. This means that the current project will remain _current_ and the tree view will remain as is. This feature is usefull to _append_ one project's files to another project. This means that the opened files will be saved along with the current project's files (if a project had been previously loaded). To simply _view_ a project's files without actually saving them in a project, use the **_Unlink_** command (see below).
 
+ - #### Manipulating a project's open files:
+
+    - **_Add Current File To Project_** adds the currently viewed file to the current project, if one has been loaded.
+
+    - **_Open Files To Current Project_** opens a list with the currently open files that do not belong to any project and the files that belong to other projects in the project ring but not in the current one, if one has been loaded.
+
  - #### Manipulating Atom's project path
 
     - **_Unlink_**, well, _unlinks_ Atom from its current notion of project path. It is the opposite from opening a folder when Atom starts. This means that the tree view is emptied and that we can open another folder without Atom opening a new window for it. If a project had been loaded then it can be considered unloaded after this command has run. I.e., opening/closing files and manipulating the tree view after an _Open Folder..._ will not mess anything up.
