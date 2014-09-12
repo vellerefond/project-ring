@@ -7,8 +7,12 @@
         'Project Ring: Delete From Ring': 'project-ring:delete'
         'Project Ring: Toggle Ring': 'project-ring:toggle'
         'Project Ring: Open Project Files': 'project-ring:open-project-files'
-        'Project Ring: Add Current File To Project': 'project-ring:add-current-file-to-project'
+        'Project Ring: Add Current File To Current Project': 'project-ring:add-current-file-to-current-project'
         'Project Ring: Add Files To Current Project': 'project-ring:add-files-to-current-project'
+        'Project Ring: Ban Current File From Project': 'project-ring:ban-current-file-from-current-project'
+        'Project Ring: Ban Files From Current Project': 'project-ring:ban-files-from-current-project'
+        'Project Ring: Always Open Current File': 'project-ring:always-open-current-file'
+        'Project Ring: Always Open Files': 'project-ring:always-open-files'
         'Project Ring: Unlink Current Project': 'project-ring:unlink'
         'Project Ring: Unlink And Set Project Path': 'project-ring:set-project-path'
         'Project Ring: Delete Current Project Ring Data': 'project-ring:delete-project-ring'
@@ -29,8 +33,18 @@
                 { 'label': 'Delete', 'command': 'project-ring:delete' },
                 { 'label': 'Toggle', 'command': 'project-ring:toggle' },
                 { 'label': 'Open Project Files', 'command': 'project-ring:open-project-files' },
-                { 'label': 'Add Current File To Project', 'command': 'project-ring:add-current-file-to-project' },
+                {
+                    'label': 'Add Current File To Current Project',
+                    'command': 'project-ring:add-current-file-to-current-project'
+                },
                 { 'label': 'Add Files To Current Project', 'command': 'project-ring:add-files-to-current-project' },
+                {
+                    'label': 'Ban Current File From Project',
+                    'command': 'project-ring:ban-current-file-from-current-project'
+                },
+                { 'label': 'Ban Files From Current Project', 'command': 'project-ring:ban-files-from-current-project' },
+                { 'label': 'Always Open Current File', 'command': 'project-ring:always-open-current-file' },
+                { 'label': 'Always Open Files', 'command': 'project-ring:always-open-files' },
                 { 'label': 'Unlink', 'command': 'project-ring:unlink' },
                 { 'label': 'Set Project Path', 'command': 'project-ring:set-project-path' },
                 { 'label': 'Delete Current Project Ring', 'command': 'project-ring:delete-project-ring' },

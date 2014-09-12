@@ -4,12 +4,14 @@ module.exports =
 class ProjectRingBufferSelectView extends View
 	projectRing: null
 
+	viewModeParameters: null
+
 	isInitialized: false
 
 	@content: ->
 		@div class: 'project-ring-buffer-select overlay from-top', =>
 			@div class: 'controls', =>
-				@input type: 'button', class: 'right add', value: 'Add'
+				@input type: 'button', class: 'right confirm', value: ''
 				@input type: 'button', class: 'right cancel', value: 'Cancel'
 				@input type: 'button', class: 'left select-all', value: 'Select All'
 				@input type: 'button', class: 'left deselect-all', value: 'Deselect All'
@@ -32,16 +34,18 @@ class ProjectRingBufferSelectView extends View
 		$entry.append($('<div></div>', class: 'title', text: title))
 		$entry.append($('<div></div>', class: 'description', text: description))
 
-	attach: (items) ->
+	attach: (viewModeParameters, items) ->
+		@viewModeParameters = viewModeParameters
 		atom.workspaceView.append @
 		$content = atom.workspaceView.find '.project-ring-buffer-select'
 		unless @isInitialized
 			$controls = $content.find('.controls')
-			$controls.find('input:button.add').on 'click', => @confirmed()
+			$controls.find('input:button.confirm').on 'click', => @confirmed()
 			$controls.find('input:button.cancel').on 'click', => @destroy()
 			$controls.find('input:button.select-all').on 'click', => @setAllEntriesSelected true
 			$controls.find('input:button.deselect-all').on 'click', => @setAllEntriesSelected false
 			@isInitialized = true
+		$content.find('.controls .confirm').val @viewModeParameters.confirmValue
 		$entries = $content.find('.entries').empty()
 		unless items.length
 			$entries.append ($ '<div>There are no files available for opening.</div>').addClass 'empty'
@@ -58,7 +62,7 @@ class ProjectRingBufferSelectView extends View
 			.each (index, element) -> \
 				bufferPaths.push $(element).attr 'data-path'
 		@destroy()
-		@projectRing.processProjectRingBufferSelectViewSelection bufferPaths
+		@projectRing.handleProjectRingBufferSelectViewSelection @viewModeParameters, bufferPaths
 
 	setAllEntriesSelected: (allSelected) ->
 		$checkboxes = atom.workspaceView.find '.project-ring-buffer-select .entries input:checkbox'

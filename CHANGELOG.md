@@ -60,3 +60,7 @@
 * Add current file to project support
 * Add files to current project support: open files and other projects' files
 * Various important and minor bug fixes
+
+###### 0.13.0 - Implemented support for banning files from projects and always opening certain files
+* Banning files of current project by ignoring them when they are opened
+* Option to always open certain files by removing them from their respective projects and adding them to the "default" project with alias "<~>"
