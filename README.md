@@ -85,6 +85,8 @@
 
  - **_Use File Pattern Hiding:_** Turns on/off the file pattern hiding feature. To quickly turn off the feature while, at the same, leaving the contents of **_File Pattern To Hide_** intact, uncheck this field.
 
+ - **_Keep All Open Files Regardless Of Project:_** If checked, any opened file will be automatically opened again when Atom restarts again but it will not be associated with any project. This way, a changing projects simply changes Atom's notion of the project root path. If any open file is closed, it is removed from the list and not opened again when Atom restarts.
+
  - **_Keep Only Project Files On Project Selection:_** If checked, when loading a project that has files for opening, all other, unrelated files will be closed.
 
  - **_Keep Out Of Path Open Files In Current Project:_** Unless checked, files not belonging to the current project's file path are not saved in the project's state when opened.

@@ -66,3 +66,5 @@
 * Option to always open certain files by removing them from their respective projects and adding them to the "default" project with alias "<~>"
 
 ###### 0.13.1 - Minor bug fix
+
+###### 0.14.0 - Added configuration option "project-ring.keepAllOpenFilesRegardlessOfProject"

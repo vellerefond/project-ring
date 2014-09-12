@@ -3,6 +3,7 @@ module.exports =
         closePreviousProjectFiles: false
         filePatternToHide: null
         filePatternToExcludeFromHiding: null
+        keepAllOpenFilesRegardlessOfProject: false
         keepOnlyProjectFilesOnProjectSelection: false
         keepOutOfPathOpenFilesInCurrentProject: false
         projectToLoadOnStartUp: null
@@ -153,6 +154,9 @@ module.exports =
                     openProjectBuffer.on \
                         'destroyed.project-ring', \
                         onBufferDestroyedProjectRingEventHandlerFactory openProjectBuffer
+                    if atom.config.get 'project-ring.keepAllOpenFilesRegardlessOfProject'
+                        @alwaysOpenBufferPath openProjectBuffer.file.path
+                        return
                     return unless \
                         atom.project.path and \
                         (new RegExp(
@@ -420,7 +424,7 @@ module.exports =
             continue if @statesCache[stateKey].isIgnored
             @statesCache[stateKey].openBufferPaths = @statesCache[stateKey].openBufferPaths.filter (openBufferPath) ->
                 openBufferPath.toLowerCase() isnt bufferPathToAlwaysOpenProxy
-        @statesCache['<~>'].openBufferPaths.push bufferPathToAlwaysOpenProxy
+        @statesCache['<~>'].openBufferPaths.push bufferPathToAlwaysOpen
         @saveProjectRing()
 
     add: (alias, renameOnly, updateTreeViewStateOnly, updateOpenBufferPathPositionsOnly) ->
@@ -463,11 +467,14 @@ module.exports =
                 @statesCache[atom.project.path].alias = alias
                 @saveProjectRing()
             return
+        bufferPathsToAlwaysOpen = @statesCache['<~>'].openBufferPaths.map (openBufferPath) ->
+            openBufferPath.toLowerCase()
         currentProjectState =
             alias: alias
             projectPath: atom.project.path
             treeViewState: treeViewState
-            openBufferPaths: @getOpenBufferPaths()
+            openBufferPaths: @getOpenBufferPaths().filter (openBufferPath) ->
+                openBufferPath.toLowerCase() not in bufferPathsToAlwaysOpen
             bannedBufferPaths: []
         @statesCache[atom.project.path] = currentProjectState
         @saveProjectRing()
