@@ -4,6 +4,7 @@ module.exports =
         filePatternToHide: null
         filePatternToExcludeFromHiding: null
         keepOnlyProjectFilesOnProjectSelection: false
+        keepOutOfPathOpenFilesInCurrentProject: false
         projectToLoadOnStartUp: null
         skipSavingProjectFiles: false
         skipOpeningProjectFiles: false
@@ -74,7 +75,7 @@ module.exports =
         atom.workspaceView.command "project-ring:rename", => @addAs true
         atom.workspaceView.command "project-ring:toggle", => @toggle()
         atom.workspaceView.command "project-ring:open-project-files", => @toggle true
-        atom.workspaceView.command "project-ring:add-file-to-project", => alert 'not implemented yet'
+        atom.workspaceView.command "project-ring:add-file-to-project", => @addOpenBufferPathToProject()
         atom.workspaceView.command "project-ring:add-files-to-project", => @addFilesToProject()
         atom.workspaceView.command "project-ring:delete", => @delete()
         atom.workspaceView.command "project-ring:unlink", => @unlink()
@@ -136,8 +137,10 @@ module.exports =
                         onBufferDestroyedProjectRingEventHandlerFactory openProjectBuffer
                     return unless \
                         atom.project.path and \
-                        (new RegExp '^' + (@turnToPathRegExp atom.project.path), 'i').test \
-                            openProjectBuffer.file.path
+                        (new RegExp(
+                            '^' + @turnToPathRegExp(atom.project.path), 'i'
+                        ).test(openProjectBuffer.file.path) or \
+                        atom.config.get 'project-ring.keepOutOfPathOpenFilesInCurrentProject')
                     @addOpenBufferPathToProject openProjectBuffer.file.path
         setTimeout (
                 =>
@@ -216,7 +219,7 @@ module.exports =
         @getConfigurationFilePath @projectRingId + '_project_ring_path.txt'
 
     getCSONFilePath: ->
-        return unless @projectRingId and not /^\s*$/.test(@projectRingId)
+        return unless @projectRingId
         csonFilePath = undefined
         _fs = require 'fs'
         try
@@ -235,7 +238,7 @@ module.exports =
                 _fs.watchFile \
                     pathFilePath,
                     { persistent: true, interval: @projectRingInvariantState.configurationFileWatchInterval },
-                    (currentStat, previousStat) => @setProjectRing @projectRingId # , (atom.project.path)
+                    (currentStat, previousStat) => @setProjectRing @projectRingId # , atom.project.path
             if csonFilePath
                 _fs.watchFile \
                     csonFilePath,
@@ -258,18 +261,17 @@ module.exports =
         _fs = require 'fs'
         _fs.exists pathFilePath, (exists) =>
             return if exists
-            _fs.writeFile pathFilePath, (@getConfigurationFilePath (@projectRingId + '_project_ring.cson')), (error) ->
+            _fs.writeFile pathFilePath, (@getConfigurationFilePath @projectRingId + '_project_ring.cson'), (error) ->
                 ok = false if error
                 alert 'Could not set project ring files for id: "' + id + '" (' + error + ')' unless ok
         return unless ok
         @loadProjectRing projectSpecificationToLoad
         @watchProjectRingConfiguration true
 
-    # SHOULD NOT BE USED DIRECTLY BUT ONLY THROUGH setProjectRing INSTEAD
     loadProjectRing: (projectSpecificationToLoad) ->
-        return unless @projectRingId and not /^\s*$/.test(@projectRingId)
+        return unless @projectRingId
         csonFilePath = @getCSONFilePath()
-        return unless csonFilePath and not /^\s*$/.test(csonFilePath)
+        return unless csonFilePath
         _fs = require 'fs'
         unless _fs.existsSync csonFilePath
             @statesCache = {}
@@ -277,25 +279,26 @@ module.exports =
         _cson = require 'season'
         try
             @statesCache = _cson.readFileSync csonFilePath
-            if projectSpecificationToLoad and \
-            not /^\s*$/.test(projectSpecificationToLoad) and
-            @statesCache
-                for stateKey in Object.keys @statesCache
-                    unless \
-                        @statesCache[stateKey].alias is projectSpecificationToLoad or \
-                        @statesCache[stateKey].projectPath is projectSpecificationToLoad
-                            continue
-                    @processProjectRingViewProjectSelection @statesCache[stateKey], false, true
-                    @runFilePatternHiding()
-                    break
+            if \
+                projectSpecificationToLoad and \
+                not /^\s*$/.test(projectSpecificationToLoad) and \
+                @statesCache
+                    for stateKey in Object.keys @statesCache
+                        unless \
+                            @statesCache[stateKey].alias is projectSpecificationToLoad or \
+                            @statesCache[stateKey].projectPath is projectSpecificationToLoad
+                                continue
+                        @processProjectRingViewProjectSelection @statesCache[stateKey], false, true
+                        @runFilePatternHiding()
+                        break
         catch error
             alert 'Could not load the project ring data for id: "' + @projectRingId + '" (' + error + ')'
             return
 
     saveProjectRing: ->
-        return unless @projectRingId and not /^\s*$/.test(@projectRingId)
+        return unless @projectRingId
         csonFilePath = @getCSONFilePath()
-        return unless csonFilePath and not /^\s*$/.test(csonFilePath)
+        return unless csonFilePath
         _cson = require 'season'
         try
             @currentlySavingConfiguration.csonFile = true
@@ -335,45 +338,56 @@ module.exports =
         return '' unless path
         path.replace @projectRingInvariantState.regExpEscapesRegExp, (match) -> '\\' + match
 
-    addOpenBufferPathToProject: (newOpenBufferPath) ->
+    addOpenBufferPathToProject: (openBufferPathToAdd, now) ->
         return unless \
             @inProject and \
             atom.project.path and \
             @statesCache and \
             @statesCache[atom.project.path]
-        newOpenBufferPath = newOpenBufferPath.toLowerCase()
+        deferedAddition = if openBufferPathToAdd and not now then true else false
+        openBufferPathToAdd = atom.workspace.getActiveEditor()?.buffer.file?.path unless openBufferPathToAdd
+        return unless openBufferPathToAdd
+        openBufferPathToAdd = openBufferPathToAdd.toLowerCase()
         unless (@statesCache[atom.project.path].openBufferPaths.find (openBufferPath) ->
-            openBufferPath.toLowerCase() is newOpenBufferPath)
-                atom.workspace.once 'editor-created', =>
+            openBufferPath.toLowerCase() is openBufferPathToAdd)
+                atom.workspace.once 'editor-created editor-created-forced.project-ring', =>
                     setTimeout (
                         =>
                             newOpenBufferPaths = @getOpenBufferPaths().filter (openBufferPathInAll) =>
-                                openBufferPathInAll.toLowerCase() is newOpenBufferPath or \
+                                openBufferPathInAll.toLowerCase() is openBufferPathToAdd or \
                                     @statesCache[atom.project.path].openBufferPaths.find (openBufferPath) ->
                                         openBufferPath.toLowerCase() is openBufferPathInAll.toLowerCase()
                             @statesCache[atom.project.path].openBufferPaths = newOpenBufferPaths
                             @saveProjectRing()
                     ),
                     0
+                unless deferedAddition
+                    atom.workspace.emit 'editor-created-forced.project-ring'
 
-    add: (alias, renameOnly, updateTreeViewStateOnly, updateOpenBufferPathsOnly) ->
+    removeOpenBufferPathFromProject: (openBufferPathToRemove) ->
+        ;
+
+    add: (alias, renameOnly, updateTreeViewStateOnly, updateOpenBufferPathPositionsOnly) ->
         @projectRingView.destroy() if @projectRingView
-        return unless atom.project.path and not /^\s*$/.test(atom.project.path)
+        return unless atom.project.path and not /^\s*$/.test atom.project.path
         treeViewState = atom.packages.getLoadedPackage('tree-view')?.serialize()
         if updateTreeViewStateOnly
             return unless @inProject and @statesCache[atom.project.path]
             @statesCache[atom.project.path].treeViewState = treeViewState
             @saveProjectRing()
             return
-        if updateOpenBufferPathsOnly
+        if updateOpenBufferPathPositionsOnly
             return unless @inProject and @statesCache[atom.project.path]
-            @statesCache[atom.project.path].openBufferPaths = @getOpenBufferPaths()
+            currentProjectOpenBufferPaths = @statesCache[atom.project.path].openBufferPaths.map (openBufferPath) ->
+                openBufferPath.toLowerCase()
+            @statesCache[atom.project.path].openBufferPaths = @getOpenBufferPaths().filter (openBufferPath) ->
+                openBufferPath.toLowerCase() in currentProjectOpenBufferPaths
             @saveProjectRing()
             return
         alias = alias or @statesCache[atom.project.path]?.alias or (require 'path').basename atom.project.path
         alias = '...' + alias.substr alias.length - 97 if alias.length > 100
         unless @statesCache[atom.project.path]
-            aliases = (Object.keys @statesCache).map (projectPath) => @statesCache[projectPath].alias
+            aliases = Object.keys(@statesCache).map (projectPath) => @statesCache[projectPath].alias
             if alias in aliases
                 salt = 1
                 aliasTemp = alias + salt.toString()
@@ -437,13 +451,49 @@ module.exports =
             }, @statesCache, 'alias', 'projectPath'
 
     addFilesToProject: ->
+        return unless @inProject and @statesCache[atom.project.path]
         @loadProjectRingBufferSelectView()
         unless @projectRingBufferSelectView.hasParent()
-            @projectRingBufferSelectView.attach()
+            bufferPathsToOfferForAddition = []
+            buffersOfCurrentProject = \
+                @statesCache[atom.project.path].openBufferPaths.map (openBufferPath) -> \
+                    openBufferPath.toLowerCase()
+            (Object.keys(@statesCache).filter (projectPath) =>
+                projectPath isnt atom.project.path).forEach (projectPath) =>
+                    (@statesCache[projectPath].openBufferPaths.filter (openBufferPath) ->
+                        openBufferPathProxy = openBufferPath.toLowerCase()
+                        openBufferPathProxy not in buffersOfCurrentProject and \
+                        not (bufferPathsToOfferForAddition.find (bufferPathSpec) ->
+                            bufferPathSpec.path.toLowerCase() is openBufferPathProxy)).forEach (openBufferPath) =>
+                                description = openBufferPath
+                                description = '...' + description.substr description.length - 37 if description.length > 40
+                                bufferPathsToOfferForAddition.push
+                                    title: @statesCache[projectPath].alias
+                                    description: description
+                                    path: openBufferPath
+            (atom.project.buffers.filter (buffer) ->
+                bufferFilePathProxy = buffer.file?.path.toLowerCase()
+                buffer.file and \
+                bufferFilePathProxy not in buffersOfCurrentProject and \
+                not (bufferPathsToOfferForAddition.find (bufferPathSpec) ->
+                    bufferPathSpec.path.toLowerCase() is bufferFilePathProxy)).forEach (buffer) ->
+                        description = buffer.file.path
+                        description = '...' + description.substr description.length - 37 if description.length > 40
+                        bufferPathsToOfferForAddition.push
+                            title: 'Not In Project'
+                            description: description
+                            path: buffer.file.path
+            bufferPathsToOfferForAddition.sort (bufferPathSpec1, bufferPathSpec2) ->
+                if bufferPathSpec1.title is 'Not In Project' and bufferPathSpec2.title is 'Not In Project'
+                    return bufferPathSpec1.title.toLowerCase() <= bufferPathSpec2.title.toLowerCase()
+                return true if bufferPathSpec1.title is 'Not In Project'
+                return false if bufferPathSpec2.title is 'Not in Project'
+                bufferPathSpec1.title.toLowerCase() <= bufferPathSpec2.title.toLowerCase()
+            @projectRingBufferSelectView.attach bufferPathsToOfferForAddition
 
     delete: ->
         @projectRingView.destroy() if @projectRingView
-        return unless atom.project.path and not /^\s*$/.test(atom.project.path)
+        return unless atom.project.path and not /^\s*$/.test atom.project.path
         @statesCache = {} unless @statesCache
         if @inProject and @statesCache[atom.project.path]
             @inProject = false
@@ -452,7 +502,7 @@ module.exports =
 
     unlink: ->
         @projectRingView.destroy() if @projectRingView
-        return unless atom.project.path and not /^\s*$/.test(atom.project.path)
+        return unless atom.project.path and not /^\s*$/.test atom.project.path
         (atom.packages.getLoadedPackage 'tree-view')?.mainModule.treeView?.detach?()
         atom.project.setPath null
         @inProject = false
@@ -470,7 +520,7 @@ module.exports =
                 unless replace
                     @unlink()
                     atom.project.once 'path-changed', =>
-                        return unless atom.project.path and not /^\s*$/.test(atom.project.path)
+                        return unless atom.project.path and not /^\s*$/.test atom.project.path
                         unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
                             @runFilePatternHiding()
                             (atom.packages.getLoadedPackage 'tree-view')?.mainModule.treeView?.show?()
@@ -482,7 +532,7 @@ module.exports =
                     if @statesCache[pathsToOpen[0]].treeViewState
                         oldPathRE = new RegExp '^' + (@turnToPathRegExp atom.project.path), 'i'
                         if @statesCache[pathsToOpen[0]].treeViewState.selectedPath and
-                        not /^\s*$/.test(@statesCache[pathsToOpen[0]].treeViewState.selectedPath)
+                        not /^\s*$/.test @statesCache[pathsToOpen[0]].treeViewState.selectedPath
                             @statesCache[pathsToOpen[0]].treeViewState.selectedPath =
                                 @statesCache[pathsToOpen[0]].treeViewState.selectedPath.replace \
                                     oldPathRE, pathsToOpen[0]
@@ -499,7 +549,7 @@ module.exports =
                 @processProjectRingViewProjectSelection @statesCache[pathsToOpen[0]]
 
     deleteProjectRing: ->
-        return unless @projectRingId and not /^\s*$/.test(@projectRingId)
+        return unless @projectRingId and not /^\s*$/.test @projectRingId
         @projectRingView.destroy() if @projectRingView
         pathFilePath = @getPathFilePath()
         csonFilePath = @getCSONFilePath()
@@ -546,8 +596,8 @@ module.exports =
             unless projectState.projectPath is atom.project.path
                 treeView = atom.packages.getLoadedPackage 'tree-view'
                 atom.project.once 'path-changed', =>
-                    return unless atom.project.path and not /^\s*$/.test(atom.project.path)
-                    treeView?.mainModule.treeView?.updateRoot?(projectState.treeViewState.directoryExpansionStates)
+                    return unless atom.project.path and not /^\s*$/.test atom.project.path
+                    treeView?.mainModule.treeView?.updateRoot? projectState.treeViewState.directoryExpansionStates
                     @runFilePatternHiding()
                     unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
                         treeView?.mainModule.treeView?.show?()
@@ -630,17 +680,18 @@ module.exports =
             when 'project' then (@processProjectRingInputViewProjectAlias data, viewModeParameters.renameOnly); break
 
     processProjectRingInputViewProjectAlias: (alias, renameOnly) ->
-        return unless alias and not /^\s*$/.test(alias)
+        return unless alias and not /^\s*$/.test alias
         @add alias, renameOnly
 
-    processProjectRingBufferSelectViewSelection: (data) ->
-        return unless data
+    processProjectRingBufferSelectViewSelection: (paths) ->
+        return unless paths and paths.length
+        paths.forEach (path) => @addOpenBufferPathToProject path, true
 
     copy: (copyKey) ->
         return unless \
-            @inProject and
-            atom.project.path and
-            not /^\s*$/.test(atom.project.path) and
+            @inProject and \
+            atom.project.path and \
+            not /^\s*$/.test(atom.project.path) and \
             @statesCache[atom.project.path]?[copyKey]
         try
             require('clipboard').writeText @statesCache[atom.project.path][copyKey]

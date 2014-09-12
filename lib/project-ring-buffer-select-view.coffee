@@ -4,8 +4,6 @@ module.exports =
 class ProjectRingBufferSelectView extends View
 	projectRing: null
 
-	items: []
-
 	isInitialized: false
 
 	@content: ->
@@ -22,11 +20,20 @@ class ProjectRingBufferSelectView extends View
 
 	getEntryView: ({title, description, path}) ->
 		$entry = $('<div></div>', class: 'entry')
-		$entry.append($('<input />', type: 'checkbox', 'data-path': path))
+		$entry.append $('<input />', type: 'checkbox', 'data-path': path).on 'click', (event) ->
+			event.preventDefault()
+			event.returnValue = false
+			$this = $ @
+			unless $this.is('.checked')
+				$this.addClass 'checked'
+			else
+				$this.removeClass 'checked'
+			return event.returnValue
 		$entry.append($('<div></div>', class: 'title', text: title))
 		$entry.append($('<div></div>', class: 'description', text: description))
 
-	createContent: ->
+	attach: (items) ->
+		atom.workspaceView.append @
 		$content = atom.workspaceView.find '.project-ring-buffer-select'
 		unless @isInitialized
 			$controls = $content.find('.controls')
@@ -36,29 +43,26 @@ class ProjectRingBufferSelectView extends View
 			$controls.find('input:button.deselect-all').on 'click', => @setAllEntriesSelected false
 			@isInitialized = true
 		$entries = $content.find('.entries').empty()
-		unless @items.length or true
+		unless items.length
 			$entries.append ($ '<div>There are no files available for opening.</div>').addClass 'empty'
 			return
-		for i in [1..5]
-			$entries.append @getEntryView title: 'foo', description: 'desc', path: 'asdfasdf'
-
-	attach: (items) ->
-		atom.workspaceView.append @
-		@createContent()
+		for { title, description, path } in items
+			$entries.append @getEntryView title: title, description: description, path: path
 
 	destroy: ->
 		@detach()
 
 	confirmed: ->
+		bufferPaths = []
+		atom.workspaceView.find('.project-ring-buffer-select .entries input:checkbox.checked')\
+			.each (index, element) -> \
+				bufferPaths.push $(element).attr 'data-path'
 		@destroy()
-		@projectRing.processProjectRingBufferSelectViewSelection \
-			(atom.workspaceView.find '.project-ring-buffer-select .entries input:checkbox:checked')\
-				.map (index, element) -> \
-					($ element).attr 'data-path'
+		@projectRing.processProjectRingBufferSelectViewSelection bufferPaths
 
 	setAllEntriesSelected: (allSelected) ->
 		$checkboxes = atom.workspaceView.find '.project-ring-buffer-select .entries input:checkbox'
 		if allSelected
-			$checkboxes.attr 'checked', 'checked'
+			$checkboxes.removeClass('checked').addClass 'checked'
 		else
-			$checkboxes.removeAttr 'checked'
+			$checkboxes.removeClass 'checked'
