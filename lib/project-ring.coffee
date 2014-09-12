@@ -376,14 +376,16 @@ module.exports =
         return unless openBufferPathToAdd
         openBufferPathToAdd = openBufferPathToAdd.toLowerCase()
         return if \
-            (not manually and \
-             (@statesCache[atom.project.path].bannedBufferPaths.find (bannedBufferPath) -> \
-                bannedBufferPath.toLowerCase() is openBufferPathToAdd)) or \
-            (@statesCache['<~>'].openBufferPaths.find (openBufferPath) -> \
-                openBufferPath.toLowerCase() is openBufferPathToAdd)
+            not manually and \
+            (@statesCache[atom.project.path].bannedBufferPaths.find (bannedBufferPath) -> \
+                bannedBufferPath.toLowerCase() is openBufferPathToAdd)
+        if manually
+            @statesCache['<~>'].openBufferPaths = \
+                @statesCache['<~>'].openBufferPaths.filter (openBufferPath) -> \
+                    openBufferPath.toLowerCase() isnt openBufferPathToAdd
         unless (@statesCache[atom.project.path].openBufferPaths.find (openBufferPath) ->
             openBufferPath.toLowerCase() is openBufferPathToAdd)
-                atom.workspace.once 'editor-created editor-created-forced.project-ring', =>
+                atom.workspace.once 'editor-created.project-ring editor-created-forced.project-ring', =>
                     setTimeout (
                         =>
                             @statesCache[atom.project.path].bannedBufferPaths = \

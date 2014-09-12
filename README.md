@@ -44,7 +44,7 @@
 
  - #### Manipulating a project's open files and marking files to always open:
 
-    - **_Add Current File To Current Project_** adds the currently viewed file to the current project, if one has been loaded.
+    - **_Add Current File To Current Project_** adds the currently viewed file to the current project, if one has been loaded. If the file had been mark to always open (see below, **_Always Open Current File_**), it is added to the current project and associated only to it, i.e., it will not always open from that point on.
 
     - **_Open Files To Current Project_** opens a list with the currently open files that do not belong to any project and the files that belong to other projects in the project ring but not in the current one, if one has been loaded.
 

@@ -68,3 +68,5 @@
 ###### 0.13.1 - Minor bug fix
 
 ###### 0.14.0 - Added configuration option "project-ring.keepAllOpenFilesRegardlessOfProject"
+
+###### 0.14.1 - "Add Current File To Current Project" beats "Always Open Current File"
