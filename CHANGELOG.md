@@ -64,3 +64,5 @@
 ###### 0.13.0 - Implemented support for banning files from projects and always opening certain files
 * Banning files of current project by ignoring them when they are opened
 * Option to always open certain files by removing them from their respective projects and adding them to the "default" project with alias "<~>"
+
+###### 0.13.1 - Minor bug fix

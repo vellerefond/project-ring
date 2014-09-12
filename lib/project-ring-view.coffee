@@ -22,7 +22,7 @@ class ProjectRingView extends SelectListView
             @isInitialized = true
         itemsArray = []
         for key, i in (Object.keys items).sort()
-            continue unless items[key].isIgnored
+            continue if items[key].isIgnored
             index = (i + 1).toString()
             itemsArray.push {
                 'index': index,
