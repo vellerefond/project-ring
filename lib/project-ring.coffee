@@ -6,6 +6,7 @@ module.exports =
         keepAllOpenFilesRegardlessOfProject: false
         keepOnlyProjectFilesOnProjectSelection: false
         keepOutOfPathOpenFilesInCurrentProject: false
+        makeTheCurrentProjectTheDefaultOnStartUp: false
         projectToLoadOnStartUp: null
         skipSavingProjectFiles: false
         skipOpeningProjectFiles: false
@@ -364,13 +365,13 @@ module.exports =
         return '' unless path
         path.replace @projectRingInvariantState.regExpEscapesRegExp, (match) -> '\\' + match
 
-    checkIfInProject: ->
-        unless @inProject
+    checkIfInProject: (omitAlert) ->
+        unless @inProject or (omitAlert ? true)
             alert 'You have not loaded a project yet.'
         @inProject
 
     addOpenBufferPathToProject: (openBufferPathToAdd, manually) ->
-        return unless @checkIfInProject()
+        return unless @checkIfInProject not manually
         deferedAddition = if openBufferPathToAdd and not manually then true else false
         openBufferPathToAdd = atom.workspace.getActiveEditor()?.buffer.file?.path unless openBufferPathToAdd
         return unless openBufferPathToAdd
@@ -457,10 +458,10 @@ module.exports =
                 while aliasTemp in aliases
                     aliasTemp = alias + (++salt).toString()
                 alias = aliasTemp
-        projectToLoadOnStartUp = atom.config.get 'project-ring.projectToLoadOnStartUp'
+        projectToLoadOnStartUp = atom.config.get 'project-ring.projectToLoadOnStartUp' or ''
         if @statesCache[atom.project.path] and \
             (@statesCache[atom.project.path].alias is projectToLoadOnStartUp or \
-            atom.project.path is projectToLoadOnStartUp) and \
+            atom.project.path.toLowerCase() is projectToLoadOnStartUp.toLowerCase()) and \
             alias isnt @statesCache[atom.project.path].alias
                 atom.config.set 'project-ring.projectToLoadOnStartUp', alias
         if renameOnly
@@ -715,6 +716,8 @@ module.exports =
                 atom.project.setPath projectState.projectPath
             else
                 @inProject = true
+            if atom.config.get 'project-ring.makeTheCurrentProjectTheDefaultOnStartUp'
+                atom.config.set 'project-ring.projectToLoadOnStartUp', projectState.alias
         validOpenBufferPaths = projectState.openBufferPaths.filter (openBufferPath) -> _fs.existsSync(openBufferPath)
         if \
             not openProjectBuffersOnly and \

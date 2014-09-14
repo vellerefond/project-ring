@@ -91,6 +91,8 @@
 
  - **_Keep Out Of Path Open Files In Current Project:_** Unless checked, files not belonging to the current project's file path are not saved in the project's state when opened.
 
+ - **_Make The Current Project The Default On StartUp:_** If checked, when loading a project that project will be set as the default for when Atom restarts, just as if **_Project To Load On StartUp_** (see below) had been set with that project's alias as the value.
+
  - **_Project To Load On StartUp:_** Give a project's alias of project root path in this field to have it automatically load when Atom starts. When renaming a project and if this project was the one specified in this field, then this field is automatically updated to contains the project's new alias.
 
  - **_Skip Saving Project Files:_** If checked, then opening/closing files will not be reflected in the project's state. This implied **_Skip Opening Project Files_**.
