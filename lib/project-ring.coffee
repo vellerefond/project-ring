@@ -74,6 +74,8 @@ module.exports =
                 @runFilePatternHiding()
             atom.config.observe 'project-ring.filePatternToExcludeFromHiding', null, (filePatternToExcludeFromHiding) =>
                 @runFilePatternHiding()
+        else
+            @setProjectRing 'default', atom.config.get 'project-ring.projectToLoadOnStartUp'
         _fs = require 'fs'
         validDefaultBufferPathsToOpen = @statesCache['<~>'].openBufferPaths.filter (openBufferPath) ->
             _fs.existsSync openBufferPath
@@ -123,10 +125,9 @@ module.exports =
             else
                 onBufferDestroyedProjectRingEventHandlerFactory = (bufferDestroyed) =>
                     =>
-                        return unless @inProject and bufferDestroyed.file
+                        return unless bufferDestroyed.file
                         setTimeout (
                                 =>
-                                    return unless bufferDestroyed.file
                                     bufferDestroyedPathProxy = bufferDestroyed.file.path.toLowerCase()
                                     if (@statesCache['<~>'].openBufferPaths.find (openBufferPath) ->
                                         openBufferPath.toLowerCase() is bufferDestroyedPathProxy)
@@ -282,11 +283,12 @@ module.exports =
         pathFilePath = @getPathFilePath()
         ok = true
         _fs = require 'fs'
-        _fs.exists pathFilePath, (exists) =>
-            return if exists
-            _fs.writeFile pathFilePath, (@getConfigurationFilePath @projectRingId + '_project_ring.cson'), (error) ->
-                ok = false if error
-                alert 'Could not set project ring files for id: "' + id + '" (' + error + ')' unless ok
+        unless _fs.existsSync pathFilePath
+            try
+                _fs.writeFileSync pathFilePath, (@getConfigurationFilePath @projectRingId + '_project_ring.cson')
+            catch error
+                ok = false
+                alert 'Could not set project ring files for id: "' + id + '" (' + error + ')'
         return unless ok
         @loadProjectRing projectSpecificationToLoad
         @watchProjectRingConfiguration true
@@ -297,7 +299,7 @@ module.exports =
         return unless csonFilePath
         _fs = require 'fs'
         unless _fs.existsSync csonFilePath
-            @statesCache = {}
+            @statesCache = '<~>': openBufferPaths: [], isIgnored: true
             return
         _cson = require 'season'
         try
@@ -807,7 +809,7 @@ module.exports =
             when 'always-open' then (@processProjectRingBufferSelectViewSelection data, false, false, true); break
 
     processProjectRingBufferSelectViewSelection: (paths, add, ban, alwaysOpen) ->
-        return unless paths and paths.length
+        return unless paths and paths.length and (if add or ban then @checkIfInProject() else true)
         if add
             paths.forEach (path) => @addOpenBufferPathToProject path, true
         else if ban

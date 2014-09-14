@@ -74,3 +74,5 @@
 ###### 0.15.0 - Impemented the "Make The Current Project The Default On StartUp" configuration option
 * Implemented the "project-ring.makeTheCurrentProjectTheDefaultOnStartUp" configuration option
 * Bug fix regarding the alert shown when not in project yet opening a file
+
+###### 0.15.1 - Fixed first time initialization bug (issue #1)
