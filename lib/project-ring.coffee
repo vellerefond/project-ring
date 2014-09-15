@@ -12,6 +12,7 @@ module.exports =
         skipOpeningProjectFiles: false
         skipOpeningTreeViewWhenChangingProjectPath: false
         useFilePatternHiding: false
+        useNotifications: true
 
     projectRingInvariantState: null
 
@@ -45,7 +46,7 @@ module.exports =
         Object.freeze @projectRingInvariantState
         @currentlySavingConfiguration =
             csonFile: false
-        @projectRingNotification = new (require './project-ring-notification')
+        @setupProjectRingNotification()
         @setupAutomaticProjectBuffersSaving()
         @setupAutomaticProjectLoadingOnProjectPathChange()
         projectToLoadOnStartUp = (atom.project.path or null) ? atom.config.get 'project-ring.projectToLoadOnStartUp'
@@ -120,6 +121,11 @@ module.exports =
 
     activate: (state) ->
         setTimeout (=> @initialize state), 0
+
+    setupProjectRingNotification: ->
+        @projectRingNotification = new (require './project-ring-notification')
+        atom.config.observe 'project-ring.useNotifications', null, (useNotifications) =>
+            @projectRingNotification.isEnabled = useNotifications
 
     setupAutomaticProjectBuffersSaving: ->
         atom.config.observe 'project-ring.skipSavingProjectFiles', null, (skipSavingProjectFiles) =>

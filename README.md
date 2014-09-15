@@ -100,3 +100,5 @@
  - **_Skip Opening Project Files:_** If checked, then a project's files will not be opened when the project is loaded. Automatic file saving still works though.
 
  - **_Skip Opening Tree View When Changing Project Path:_** If checked, then the tree view will not automatically opened (if it was previously hidden) when a changing from project to project (e.g., via **_Toggle_**) or setting a new project path (e.g., via **_Set Project Path_**).
+
+ - **_Use Notifications:_** Turns on/off the notifications from various actions of Project Ring. Alerts are always produced, when necessary, regardless of this configuration option's value.

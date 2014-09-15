@@ -4,6 +4,8 @@ module.exports =
 class ProjectRingNotification
 	notification: null
 
+	isEnabled: true
+
 	closeTimeout: null
 
 	animationDelay: 250
@@ -32,14 +34,14 @@ class ProjectRingNotification
 
 	notify: (message, sticky) ->
 		@close()
-		return unless message
+		return unless @isEnabled and message
 		$(document.body).append @setCSS('notify').text message.toString()
 		@getActiveNotification().show @animationDelay
 		@scheduleClose @closeDelays.notification unless sticky
 
 	warn: (message, sticky) ->
 		@close()
-		return unless message
+		return unless @isEnabled and message
 		$(document.body).append @setCSS('warn').text message.toString()
 		@getActiveNotification().show @animationDelay
 		@scheduleClose @closeDelays.warning unless sticky
