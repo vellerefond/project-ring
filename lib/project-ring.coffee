@@ -52,7 +52,7 @@ module.exports =
                                 treeView.mainModule.treeView.find('.tree-view').on 'click keydown', (event) =>
                                     setTimeout (
                                             =>
-                                                @add null, false, true
+                                                @add updateTreeViewStateOnly: true
                                                 @runFilePatternHiding()
                                         ),
                                         0
@@ -63,7 +63,7 @@ module.exports =
                 treeView.mainModule.treeView.find('.tree-view').on 'click keydown', (event) =>
                     setTimeout (
                             =>
-                                @add null, false, true
+                                @add updateTreeViewStateOnly: true
                                 @runFilePatternHiding()
                         ),
                         0
@@ -131,7 +131,7 @@ module.exports =
                                     bufferDestroyedPathProxy = bufferDestroyed.file.path.toLowerCase()
                                     if (@statesCache['<~>'].openBufferPaths.find (openBufferPath) ->
                                         openBufferPath.toLowerCase() is bufferDestroyedPathProxy)
-                                            @statesCache['<~>'].openBufferPaths = \
+                                            @statesCache['<~>'].openBufferPaths =
                                                 @statesCache['<~>'].openBufferPaths.filter (openBufferPath) ->
                                                     openBufferPath.toLowerCase() isnt bufferDestroyedPathProxy
                                             @saveProjectRing()
@@ -169,7 +169,7 @@ module.exports =
         setTimeout (
                 =>
                     atom.workspaceView.find('.tab-bar').on 'drop', =>
-                        setTimeout (=> @add null, false, false, true), 0
+                        setTimeout (=> @add updateOpenBufferPathPositionsOnly: true), 0
             ),
             0
 
@@ -314,7 +314,7 @@ module.exports =
                             (@statesCache[stateKey].alias is projectSpecificationToLoad or \
                              @statesCache[stateKey].projectPath is projectSpecificationToLoad)
                                 continue
-                        @processProjectRingViewProjectSelection @statesCache[stateKey], false, true
+                        @processProjectRingViewProjectSelection projectState: @statesCache[stateKey], isDefault: true
                         @runFilePatternHiding()
                         break
         catch error
@@ -383,16 +383,16 @@ module.exports =
             (@statesCache[atom.project.path].bannedBufferPaths.find (bannedBufferPath) -> \
                 bannedBufferPath.toLowerCase() is openBufferPathToAdd)
         if manually
-            @statesCache['<~>'].openBufferPaths = \
-                @statesCache['<~>'].openBufferPaths.filter (openBufferPath) -> \
+            @statesCache['<~>'].openBufferPaths =
+                @statesCache['<~>'].openBufferPaths.filter (openBufferPath) ->
                     openBufferPath.toLowerCase() isnt openBufferPathToAdd
         unless (@statesCache[atom.project.path].openBufferPaths.find (openBufferPath) ->
             openBufferPath.toLowerCase() is openBufferPathToAdd)
                 atom.workspace.once 'editor-created.project-ring editor-created-forced.project-ring', =>
                     setTimeout (
                         =>
-                            @statesCache[atom.project.path].bannedBufferPaths = \
-                                @statesCache[atom.project.path].bannedBufferPaths.filter (bannedBufferPath) -> \
+                            @statesCache[atom.project.path].bannedBufferPaths =
+                                @statesCache[atom.project.path].bannedBufferPaths.filter (bannedBufferPath) ->
                                     bannedBufferPath.toLowerCase() isnt openBufferPathToAdd
                             newOpenBufferPaths = @getOpenBufferPaths().filter (openBufferPathInAll) =>
                                 openBufferPathInAll.toLowerCase() is openBufferPathToAdd or \
@@ -412,8 +412,8 @@ module.exports =
         openBufferPathToBanProxy = openBufferPathToBan.toLowerCase()
         unless (@statesCache[atom.project.path].bannedBufferPaths.find (openBufferPath) ->
             openBufferPath.toLowerCase() is openBufferPathToBanProxy)
-                @statesCache[atom.project.path].openBufferPaths = \
-                    @statesCache[atom.project.path].openBufferPaths.filter (openBufferPath) -> \
+                @statesCache[atom.project.path].openBufferPaths =
+                    @statesCache[atom.project.path].openBufferPaths.filter (openBufferPath) ->
                         openBufferPath.toLowerCase() isnt openBufferPathToBanProxy
                 @statesCache[atom.project.path].bannedBufferPaths.push openBufferPathToBan
                 @saveProjectRing()
@@ -432,16 +432,17 @@ module.exports =
         @statesCache['<~>'].openBufferPaths.push bufferPathToAlwaysOpen
         @saveProjectRing()
 
-    add: (alias, renameOnly, updateTreeViewStateOnly, updateOpenBufferPathPositionsOnly) ->
+    add: (options) ->
+        options = options or {}
         @projectRingView.destroy() if @projectRingView
         return unless atom.project.path and not /^\s*$/.test atom.project.path
         treeViewState = atom.packages.getLoadedPackage('tree-view')?.serialize()
-        if updateTreeViewStateOnly
+        if options.updateTreeViewStateOnly
             return unless @checkIfInProject()
             @statesCache[atom.project.path].treeViewState = treeViewState
             @saveProjectRing()
             return
-        if updateOpenBufferPathPositionsOnly
+        if options.updateOpenBufferPathPositionsOnly
             return unless @checkIfInProject()
             currentProjectOpenBufferPaths = @statesCache[atom.project.path].openBufferPaths.map (openBufferPath) ->
                 openBufferPath.toLowerCase()
@@ -449,7 +450,7 @@ module.exports =
                 openBufferPath.toLowerCase() in currentProjectOpenBufferPaths
             @saveProjectRing()
             return
-        alias = alias or @statesCache[atom.project.path]?.alias or require('path').basename atom.project.path
+        alias = options.alias or @statesCache[atom.project.path]?.alias or require('path').basename atom.project.path
         alias = '...' + alias.substr alias.length - 97 if alias.length > 100
         unless @statesCache[atom.project.path]
             aliases = (Object.keys(@statesCache).filter (projectPath) =>
@@ -466,7 +467,7 @@ module.exports =
             atom.project.path.toLowerCase() is projectToLoadOnStartUp.toLowerCase()) and \
             alias isnt @statesCache[atom.project.path].alias
                 atom.config.set 'project-ring.projectToLoadOnStartUp', alias
-        if renameOnly
+        if options.renameOnly
             return unless @checkIfInProject()
             if @statesCache[atom.project.path]
                 @statesCache[atom.project.path].alias = alias
@@ -483,7 +484,8 @@ module.exports =
             bannedBufferPaths: []
         @statesCache[atom.project.path] = currentProjectState
         @saveProjectRing()
-        @processProjectRingViewProjectSelection @statesCache[atom.project.path] unless @checkIfInProject()
+        unless @checkIfInProject()
+            @processProjectRingViewProjectSelection projectState: @statesCache[atom.project.path]
 
     addAs: (renameOnly) ->
         @loadProjectRingInputView()
@@ -504,7 +506,7 @@ module.exports =
     toggle: (openProjectBuffersOnly) ->
         deleteKeyBinding = atom.keymap.getKeyBindings().find (keyBinding) -> keyBinding.command is 'project-ring:add'
         if deleteKeyBinding
-        then deleteKeyBinding = \
+        then deleteKeyBinding =
             ' (delete selected: ' + deleteKeyBinding.keystrokes.split(/\s+/)[0].replace(/-[^-]+$/, '-') + 'delete)'
         else deleteKeyBinding = ''
         if @projectRingView and @projectRingView.hasParent()
@@ -525,7 +527,7 @@ module.exports =
         @loadProjectRingBufferSelectView()
         unless @projectRingBufferSelectView.hasParent()
             bufferPathsToOfferForAddition = []
-            buffersOfCurrentProject = \
+            buffersOfCurrentProject =
                 @statesCache[atom.project.path].openBufferPaths.map (openBufferPath) -> openBufferPath.toLowerCase()
             (Object.keys(@statesCache).filter (projectPath) =>
                 not @statesCache[projectPath].isIgnored and \
@@ -653,7 +655,7 @@ module.exports =
                     @add()
                 else
                     @saveProjectRing()
-                @processProjectRingViewProjectSelection @statesCache[pathsToOpen[0]]
+                @processProjectRingViewProjectSelection projectState: @statesCache[pathsToOpen[0]]
 
     deleteProjectRing: ->
         return unless @projectRingId and not /^\s*$/.test @projectRingId
@@ -687,55 +689,60 @@ module.exports =
 
     handleProjectRingViewSelection: (viewModeParameters, data) ->
         switch viewModeParameters.viewMode
-            when 'project' \
-                then (@processProjectRingViewProjectSelection data, viewModeParameters.openProjectBuffersOnly); \
-                        break
+            when 'project' then \
+                (@processProjectRingViewProjectSelection
+                    projectState: data
+                    openProjectBuffersOnly: viewModeParameters.openProjectBuffersOnly); \
+                break
 
-    processProjectRingViewProjectSelection: (projectState, openProjectBuffersOnly, isDefault) ->
-        return unless projectState
+    processProjectRingViewProjectSelection: (options) ->
+        options = options or {}
+        return unless options.projectState
         _fs = require 'fs'
-        unless _fs.existsSync projectState.projectPath
-            delete @statesCache[projectState.projectPath]
+        unless _fs.existsSync options.projectState.projectPath
+            delete @statesCache[options.projectState.projectPath]
             @saveProjectRing()
             return
-        unless @statesCache[projectState.projectPath].openBufferPaths
-            @statesCache[projectState.projectPath].openBufferPaths = []
+        unless @statesCache[options.projectState.projectPath].openBufferPaths
+            @statesCache[options.projectState.projectPath].openBufferPaths = []
             projectState.openBufferPaths = []
-        unless @statesCache[projectState.projectPath].bannedBufferPaths
-            @statesCache[projectState.projectPath].bannedBufferPaths = []
+        unless @statesCache[options.projectState.projectPath].bannedBufferPaths
+            @statesCache[options.projectState.projectPath].bannedBufferPaths = []
             projectState.bannedBufferPaths = []
         previousProjectPath = atom.project.path
-        unless openProjectBuffersOnly
-            unless projectState.projectPath is atom.project.path
+        unless options.openProjectBuffersOnly
+            unless options.projectState.projectPath is atom.project.path
                 treeView = atom.packages.getLoadedPackage 'tree-view'
                 atom.project.once 'path-changed', =>
                     return unless atom.project.path and not /^\s*$/.test atom.project.path
-                    treeView?.mainModule.treeView?.updateRoot? projectState.treeViewState.directoryExpansionStates
+                    treeView?.mainModule.treeView?.updateRoot? \
+                        options.projectState.treeViewState.directoryExpansionStates
                     @runFilePatternHiding()
                     unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
                         treeView?.mainModule.treeView?.show?()
                     @inProject = true
-                atom.project.setPath projectState.projectPath
+                atom.project.setPath options.projectState.projectPath
             else
                 @inProject = true
             if atom.config.get 'project-ring.makeTheCurrentProjectTheDefaultOnStartUp'
-                atom.config.set 'project-ring.projectToLoadOnStartUp', projectState.alias
-        validOpenBufferPaths = projectState.openBufferPaths.filter (openBufferPath) -> _fs.existsSync(openBufferPath)
+                atom.config.set 'project-ring.projectToLoadOnStartUp', options.projectState.alias
+        validOpenBufferPaths = options.projectState.openBufferPaths.filter (openBufferPath) -> _fs.existsSync(openBufferPath)
         if \
-            not openProjectBuffersOnly and \
+            not options.openProjectBuffersOnly and \
             previousProjectPath and \
             previousProjectPath isnt atom.project.path and \
             @statesCache[previousProjectPath] and \
             atom.project.buffers.length and \
             atom.config.get 'project-ring.closePreviousProjectFiles'
-                previousProjectStateOpenBufferPaths = \
-                    @statesCache[previousProjectPath].openBufferPaths.map (openBufferPath) -> \
+                previousProjectStateOpenBufferPaths =
+                    @statesCache[previousProjectPath].openBufferPaths.map (openBufferPath) ->
                         openBufferPath.toLowerCase()
                 atom.project.once 'buffer-created.project-ring', (bufferCreated) =>
                     setTimeout (
                             =>
-                                projectStateOpenBufferPaths = projectState.openBufferPaths.map (openBufferPath) ->
-                                    openBufferPath.toLowerCase()
+                                projectStateOpenBufferPaths =
+                                    options.projectState.openBufferPaths.map (openBufferPath) ->
+                                        openBufferPath.toLowerCase()
                                 (atom.project.buffers.filter (buffer) ->
                                     bufferPath = buffer.file?.path.toLowerCase()
                                     bufferPath and \
@@ -753,10 +760,10 @@ module.exports =
                         not buffer.file or \
                         buffer.file.path.toLowerCase() not in previousProjectStateOpenBufferPaths)
                             atom.workspaceView.triggerHandler 'application:new-file'
-        if openProjectBuffersOnly or not atom.config.get 'project-ring.skipOpeningProjectFiles'
-            if projectState.openBufferPaths and projectState.openBufferPaths.length
+        if options.openProjectBuffersOnly or not atom.config.get 'project-ring.skipOpeningProjectFiles'
+            if options.projectState.openBufferPaths and options.projectState.openBufferPaths.length
                 unless \
-                    openProjectBuffersOnly or \
+                    options.openProjectBuffersOnly or \
                     not atom.config.get 'project-ring.keepOnlyProjectFilesOnProjectSelection'
                         atom.project.buffers.forEach (buffer) =>
                             bufferPathProxy = buffer.file.path.toLowerCase()
@@ -770,8 +777,8 @@ module.exports =
                                         buffer.save()
                                         buffer.destroy()
                 unless \
-                    openProjectBuffersOnly or \
-                    projectState.openBufferPaths.length is validOpenBufferPaths.length
+                    options.openProjectBuffersOnly or \
+                    options.projectState.openBufferPaths.length is validOpenBufferPaths.length
                         @statesCache[projectState.projectPath].openBufferPaths = validOpenBufferPaths
                         @saveProjectRing()
                 currentlyOpenBufferPaths = @getOpenBufferPaths().map (openBufferPath) ->
@@ -780,7 +787,7 @@ module.exports =
                     validOpenBufferPath.toLowerCase() not in currentlyOpenBufferPaths
                 if bufferPathsToOpen.length
                     atom.open pathsToOpen: bufferPathsToOpen, newWindow: false
-                    if isDefault
+                    if options.isDefault
                         atom.project.on 'buffer-created.project-ring-remove-empty', (bufferCreated) =>
                             return unless bufferCreated.file
                             atom.project.off 'buffer-created.project-ring-remove-empty'
@@ -800,7 +807,7 @@ module.exports =
 
     processProjectRingInputViewProjectAlias: (alias, renameOnly) ->
         return unless alias and not /^\s*$/.test alias
-        @add alias, renameOnly
+        @add alias: alias, renameOnly: renameOnly
 
     handleProjectRingBufferSelectViewSelection: (viewModeParameters, data) ->
         switch viewModeParameters.viewMode
