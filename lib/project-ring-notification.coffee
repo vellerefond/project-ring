@@ -8,12 +8,17 @@ class ProjectRingNotification
 
 	animationDelay: 250
 
+	closeDelays:
+		notification: 1500
+		warning: 2500
+		alert: 5000
+
 	createNotification: ->
 		return if @notification
 		@notification = $('<div></div>').on 'click', => @close()
 
 	getActiveNotification: ->
-		atom.workspaceView.find 'project-ring-notification'
+		$(document.body).find '.project-ring-notification'
 
 	setCSS: (severity) ->
 		return unless @notification and severity
@@ -25,21 +30,29 @@ class ProjectRingNotification
 		clearTimeout @closeTimeout
 		@closeTimeout = setTimeout (=> @close()), closeDelay
 
-	notify: (message) ->
+	notify: (message, sticky) ->
 		@close()
-		atom.workspaceView.append setCSS('notification').text message
+		return unless message
+		$(document.body).append @setCSS('notify').text message.toString()
 		@getActiveNotification().show @animationDelay
+		@scheduleClose @closeDelays.notification unless sticky
 
-	warn: (message) ->
+	warn: (message, sticky) ->
 		@close()
-		atom.workspaceView.append setCSS('warning').text message
+		return unless message
+		$(document.body).append @setCSS('warn').text message.toString()
+		@getActiveNotification().show @animationDelay
+		@scheduleClose @closeDelays.warning unless sticky
 
-	alert: (message) ->
+	alert: (message, sticky) ->
 		@close()
-		atom.workspaceView.append setCSS('alert').text message
+		return unless message
+		$(document.body).append @setCSS('alert').text message.toString()
+		@getActiveNotification().show @animationDelay
+		@scheduleClose @closeDelays.alert unless sticky
 
 	close: ->
 		@createNotification()
 		clearTimeout @closeTimeout
-		@getActiveNotification().hide(@animationDelay).queue ->
+		@getActiveNotification().stop().hide(@animationDelay).queue ->
 			$(@).remove().dequeue()

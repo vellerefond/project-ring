@@ -78,3 +78,5 @@
 ###### 0.15.1 - Fixed first time initialization bug (issue #1)
 
 ###### 0.15.2 - Minor behavioral changes regarding startup
+
+###### 0.16.0 - Implemented notifications in Atom for project ring's actions/alerts

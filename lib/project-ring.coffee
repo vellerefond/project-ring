@@ -46,7 +46,6 @@ module.exports =
         @currentlySavingConfiguration =
             csonFile: false
         @projectRingNotification = new (require './project-ring-notification')
-        window.prn = @projectRingNotification # debug
         @setupAutomaticProjectBuffersSaving()
         @setupAutomaticProjectLoadingOnProjectPathChange()
         projectToLoadOnStartUp = (atom.project.path or null) ? atom.config.get 'project-ring.projectToLoadOnStartUp'
@@ -303,7 +302,7 @@ module.exports =
                 _fs.writeFileSync pathFilePath, (@getConfigurationFilePath @projectRingId + '_project_ring.cson')
             catch error
                 ok = false
-                alert 'Could not set project ring files for id: "' + id + '" (' + error + ')'
+                @projectRingNotification.alert 'Could not set project ring files for id: "' + id + '" (' + error + ')'
         return unless ok
         @loadProjectRing projectSpecificationToLoad
         @watchProjectRingConfiguration true
@@ -333,7 +332,8 @@ module.exports =
                         @runFilePatternHiding()
                         break
         catch error
-            alert 'Could not load the project ring data for id: "' + @projectRingId + '" (' + error + ')'
+            @projectRingNotification.alert \
+                'Could not load the project ring data for id: "' + @projectRingId + '" (' + error + ')'
             return
         @statesCache['<~>'] = openBufferPaths: [], isIgnored: true unless @statesCache['<~>']
 
@@ -347,7 +347,8 @@ module.exports =
             _cson.writeFileSync csonFilePath, @statesCache
         catch error
             @currentlySavingConfiguration.csonFile = false
-            alert 'Could not save the project ring data for id: "' + @projectRingId + '" (' + error + ')'
+            @projectRingNotification.alert \
+                'Could not save the project ring data for id: "' + @projectRingId + '" (' + error + ')'
             return
 
     deactivate: ->
@@ -384,7 +385,7 @@ module.exports =
 
     checkIfInProject: (omitAlert) ->
         unless @inProject or (omitAlert ? true)
-            alert 'You have not loaded a project yet.'
+            @projectRingNotification.alert 'You have not loaded a project yet.'
         @inProject
 
     addOpenBufferPathToProject: (openBufferPathToAdd, manually) ->
@@ -415,6 +416,13 @@ module.exports =
                                         openBufferPath.toLowerCase() is openBufferPathInAll.toLowerCase()
                             @statesCache[atom.project.path].openBufferPaths = newOpenBufferPaths
                             @saveProjectRing()
+                            if manually
+                                @projectRingNotification.notify \
+                                    'File "' +
+                                    require('path').basename(openBufferPathToAdd) +
+                                    '" has been added to project "' +
+                                    @statesCache[atom.project.path].alias +
+                                    '"'
                     ),
                     0
                 unless deferedAddition
@@ -432,6 +440,12 @@ module.exports =
                         openBufferPath.toLowerCase() isnt openBufferPathToBanProxy
                 @statesCache[atom.project.path].bannedBufferPaths.push openBufferPathToBan
                 @saveProjectRing()
+                @projectRingNotification.notify \
+                    'File "' +
+                    require('path').basename('openBufferPathToBan') +
+                    '" has been banned from project "'+
+                    @statesCache[atom.project.path].alias +
+                    '"'
 
     alwaysOpenBufferPath: (bufferPathToAlwaysOpen) ->
         bufferPathToAlwaysOpen = atom.workspace.getActiveEditor()?.buffer.file?.path unless bufferPathToAlwaysOpen
@@ -446,6 +460,10 @@ module.exports =
                 openBufferPath.toLowerCase() isnt bufferPathToAlwaysOpenProxy
         @statesCache['<~>'].openBufferPaths.push bufferPathToAlwaysOpen
         @saveProjectRing()
+        @projectRingNotification.notify \
+            'File "' +
+            require('path').basename('bufferPathToAlwaysOpen') +
+            '" has been marked to always open'
 
     add: (options) ->
         options = options or {}
@@ -476,7 +494,7 @@ module.exports =
                 while aliasTemp in aliases
                     aliasTemp = alias + (++salt).toString()
                 alias = aliasTemp
-        projectToLoadOnStartUp = atom.config.get 'project-ring.projectToLoadOnStartUp' or ''
+        projectToLoadOnStartUp = atom.config.get('project-ring.projectToLoadOnStartUp') or ''
         if @statesCache[atom.project.path] and \
             (@statesCache[atom.project.path].alias is projectToLoadOnStartUp or \
             atom.project.path.toLowerCase() is projectToLoadOnStartUp.toLowerCase()) and \
@@ -485,8 +503,10 @@ module.exports =
         if options.renameOnly
             return unless @checkIfInProject()
             if @statesCache[atom.project.path]
+                oldAlias = @statesCache[atom.project.path].alias
                 @statesCache[atom.project.path].alias = alias
                 @saveProjectRing()
+                @projectRingNotification.notify 'Project "' + oldAlias + '" is now known as "' + alias + '"'
             return
         bufferPathsToAlwaysOpen = @statesCache['<~>'].openBufferPaths.map (openBufferPath) ->
             openBufferPath.toLowerCase()
@@ -499,6 +519,7 @@ module.exports =
             bannedBufferPaths: []
         @statesCache[atom.project.path] = currentProjectState
         @saveProjectRing()
+        @projectRingNotification.notify 'Project "' + alias + '" has been created/updated'
         unless @checkIfInProject()
             @processProjectRingViewProjectSelection projectState: @statesCache[atom.project.path]
 
@@ -621,15 +642,18 @@ module.exports =
         return unless atom.project.path and not /^\s*$/.test atom.project.path
         @statesCache = {} unless @statesCache
         @inProject = false if @inProject
+        alias = @statesCache[atom.project.path]?.alias
         delete @statesCache[atom.project.path]
         @saveProjectRing()
+        @projectRingNotification.notify 'Project "' + alias + '" has been deleted' if alias
 
-    unlink: ->
+    unlink: (doNotShowNotification) ->
         @projectRingView.destroy() if @projectRingView
         return unless atom.project.path and not /^\s*$/.test atom.project.path
         (atom.packages.getLoadedPackage 'tree-view')?.mainModule.treeView?.detach?()
         atom.project.setPath null
         @inProject = false
+        @projectRingNotification.notify 'No project is currently loaded' unless doNotShowNotification
 
     setProjectPath: (replace) ->
         @projectRingView.destroy() if @projectRingView
@@ -642,7 +666,7 @@ module.exports =
                 pathsToOpen = pathsToOpen or []
                 return unless pathsToOpen.length
                 unless replace
-                    @unlink()
+                    @unlink true
                     @currentlySettingProjectPath = true
                     atom.project.once 'path-changed', =>
                         @currentlySettingProjectPath = false
@@ -650,6 +674,7 @@ module.exports =
                         unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
                             @runFilePatternHiding()
                             (atom.packages.getLoadedPackage 'tree-view')?.mainModule.treeView?.show?()
+                        @projectRingNotification.notify 'The project path has been set to "' + atom.project.path + '"'
                     atom.project.setPath pathsToOpen[0]
                     return
                 if @statesCache[atom.project.path]
@@ -684,6 +709,7 @@ module.exports =
         _fs.unlinkSync pathFilePath if _fs.existsSync pathFilePath
         @setProjectRing 'default'
         @inProject = false
+        @projectRingNotification.notify 'All project ring data has been deleted'
 
     handleProjectRingViewKeydown: (keydownEvent, viewModeParameters, selectedItem) ->
         return unless keydownEvent and selectedItem
@@ -740,9 +766,11 @@ module.exports =
                     unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
                         treeView?.mainModule.treeView?.show?()
                     @inProject = true
+                    @projectRingNotification.notify 'Project "' + options.projectState.alias + '" has been loaded'
                 atom.project.setPath options.projectState.projectPath
             else
                 @inProject = true
+                @projectRingNotification.notify 'Project "' + options.projectState.alias + '" has been loaded'
             if atom.config.get 'project-ring.makeTheCurrentProjectTheDefaultOnStartUp'
                 atom.config.set 'project-ring.projectToLoadOnStartUp', options.projectState.alias
         validOpenBufferPaths = options.projectState.openBufferPaths.filter (openBufferPath) -> _fs.existsSync(openBufferPath)
@@ -850,8 +878,10 @@ module.exports =
             @statesCache[atom.project.path]?[copyKey]
         try
             require('clipboard').writeText @statesCache[atom.project.path][copyKey]
+            @projectRingNotification.notify \
+                'The requested project attribute has been copied to the system\'s clipboard'
         catch error
-            alert error
+            @projectRingNotification.alert error
             return
 
     editKeyBindings: ->
@@ -860,6 +890,6 @@ module.exports =
             atom.packages.getLoadedPackage('project-ring').path, 'keymaps', 'project-ring.cson'
         _fs = require 'fs'
         unless _fs.existsSync keyBindingsFilePath
-            alert 'Could not find the default Project Ring key bindings file.'
+            @projectRingNotification.alert 'Could not find the default Project Ring key bindings file.'
             return
         atom.open pathsToOpen: [ keyBindingsFilePath ], newWindow: false
