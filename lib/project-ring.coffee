@@ -29,6 +29,8 @@ module.exports =
 
     currentlySavingConfiguration: null
 
+    currentlySettingProjectPath: false
+
     initialize: (state) ->
         if @projectRingInvariantState and @projectRingInvariantState.isInitialized
             return
@@ -42,6 +44,8 @@ module.exports =
         @currentlySavingConfiguration =
             csonFile: false
         @setupAutomaticProjectBuffersSaving()
+        @setupAutomaticProjectLoadingOnProjectPathChange()
+        projectToLoadOnStartUp = (atom.project.path or null) ? atom.config.get 'project-ring.projectToLoadOnStartUp'
         treeView = atom.packages.getLoadedPackage 'tree-view'
         if treeView
             unless treeView?.mainModule.treeView?.updateRoot
@@ -56,7 +60,7 @@ module.exports =
                                                 @runFilePatternHiding()
                                         ),
                                         0
-                                @setProjectRing 'default', atom.config.get 'project-ring.projectToLoadOnStartUp'
+                                @setProjectRing 'default', projectToLoadOnStartUp
                         ),
                         0
             else
@@ -67,7 +71,7 @@ module.exports =
                                 @runFilePatternHiding()
                         ),
                         0
-                @setProjectRing 'default', atom.config.get 'project-ring.projectToLoadOnStartUp'
+                @setProjectRing 'default', projectToLoadOnStartUp
             atom.config.observe 'project-ring.useFilePatternHiding', null, (useFilePatternHiding) =>
                 @runFilePatternHiding useFilePatternHiding
             atom.config.observe 'project-ring.filePatternToHide', null, (filePatternToHide) =>
@@ -75,7 +79,7 @@ module.exports =
             atom.config.observe 'project-ring.filePatternToExcludeFromHiding', null, (filePatternToExcludeFromHiding) =>
                 @runFilePatternHiding()
         else
-            @setProjectRing 'default', atom.config.get 'project-ring.projectToLoadOnStartUp'
+            @setProjectRing 'default', projectToLoadOnStartUp
         _fs = require 'fs'
         validDefaultBufferPathsToOpen = @statesCache['<~>'].openBufferPaths.filter (openBufferPath) ->
             _fs.existsSync openBufferPath
@@ -172,6 +176,13 @@ module.exports =
                         setTimeout (=> @add updateOpenBufferPathPositionsOnly: true), 0
             ),
             0
+
+    setupAutomaticProjectLoadingOnProjectPathChange: ->
+        atom.project.on 'path-changed', =>
+            return unless atom.project.path and not @inProject and not @currentlySettingProjectPath
+            @processProjectRingViewProjectSelection
+                projectState: @statesCache[atom.project.path]
+                isAsynchronousProjectPathChange: true
 
     runFilePatternHiding: (useFilePatternHiding) ->
         setTimeout (
@@ -628,7 +639,9 @@ module.exports =
                 return unless pathsToOpen.length
                 unless replace
                     @unlink()
+                    @currentlySettingProjectPath = true
                     atom.project.once 'path-changed', =>
+                        @currentlySettingProjectPath = false
                         return unless atom.project.path and not /^\s*$/.test atom.project.path
                         unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
                             @runFilePatternHiding()
@@ -705,15 +718,17 @@ module.exports =
             return
         unless @statesCache[options.projectState.projectPath].openBufferPaths
             @statesCache[options.projectState.projectPath].openBufferPaths = []
-            projectState.openBufferPaths = []
+            options.projectState.openBufferPaths = []
         unless @statesCache[options.projectState.projectPath].bannedBufferPaths
             @statesCache[options.projectState.projectPath].bannedBufferPaths = []
-            projectState.bannedBufferPaths = []
+            options.projectState.bannedBufferPaths = []
         previousProjectPath = atom.project.path
         unless options.openProjectBuffersOnly
-            unless options.projectState.projectPath is atom.project.path
+            unless options.projectState.projectPath is atom.project.path and not options.isAsynchronousProjectPathChange
+                @currentlySettingProjectPath = true
                 treeView = atom.packages.getLoadedPackage 'tree-view'
                 atom.project.once 'path-changed', =>
+                    @currentlySettingProjectPath = false
                     return unless atom.project.path and not /^\s*$/.test atom.project.path
                     treeView?.mainModule.treeView?.updateRoot? \
                         options.projectState.treeViewState.directoryExpansionStates
