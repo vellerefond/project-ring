@@ -1,4 +1,4 @@
-{$, View} = require 'atom'
+{ $, View } = require 'atom'
 
 module.exports =
 class ProjectRingBufferSelectView extends View

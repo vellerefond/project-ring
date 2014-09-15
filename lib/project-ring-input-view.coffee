@@ -1,4 +1,4 @@
-{View, EditorView} = require 'atom'
+{ View, EditorView } = require 'atom'
 
 module.exports =
 class ProjectRingInputView extends View

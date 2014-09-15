@@ -15,6 +15,8 @@ module.exports =
 
     projectRingInvariantState: null
 
+    projectRingNotification: null
+
     projectRingView: null
 
     projectRingInputView: null
@@ -43,6 +45,8 @@ module.exports =
         Object.freeze @projectRingInvariantState
         @currentlySavingConfiguration =
             csonFile: false
+        @projectRingNotification = new (require './project-ring-notification')
+        window.prn = @projectRingNotification # debug
         @setupAutomaticProjectBuffersSaving()
         @setupAutomaticProjectLoadingOnProjectPathChange()
         projectToLoadOnStartUp = (atom.project.path or null) ? atom.config.get 'project-ring.projectToLoadOnStartUp'

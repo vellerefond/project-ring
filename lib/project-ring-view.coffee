@@ -1,4 +1,4 @@
-{$$, SelectListView} = require 'atom'
+{ $$, SelectListView } = require 'atom'
 
 module.exports =
 class ProjectRingView extends SelectListView
