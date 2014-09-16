@@ -448,7 +448,7 @@ module.exports =
                 @saveProjectRing()
                 @projectRingNotification.notify \
                     'File "' +
-                    require('path').basename('openBufferPathToBan') +
+                    require('path').basename(openBufferPathToBan) +
                     '" has been banned from project "'+
                     @statesCache[atom.project.path].alias +
                     '"'
@@ -468,7 +468,7 @@ module.exports =
         @saveProjectRing()
         @projectRingNotification.notify \
             'File "' +
-            require('path').basename('bufferPathToAlwaysOpen') +
+            require('path').basename(bufferPathToAlwaysOpen) +
             '" has been marked to always open'
 
     add: (options) ->

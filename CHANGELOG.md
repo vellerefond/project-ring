@@ -1,3 +1,5 @@
+###### 0.16.2 - Minor fixes for notifications
+
 ###### 0.16.1 - Visual fixes for notifications and "Use Notifications" observed configuration option
 
 ###### 0.16.0 - Implemented notifications in Atom for project ring's actions/alerts
