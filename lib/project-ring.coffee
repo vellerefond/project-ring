@@ -832,7 +832,7 @@ module.exports =
                 unless \
                     options.openProjectBuffersOnly or \
                     options.projectState.openBufferPaths.length is validOpenBufferPaths.length
-                        @statesCache[projectState.projectPath].openBufferPaths = validOpenBufferPaths
+                        @statesCache[options.projectState.projectPath].openBufferPaths = validOpenBufferPaths
                         @saveProjectRing()
                 currentlyOpenBufferPaths = @getOpenBufferPaths().map (openBufferPath) ->
                     openBufferPath.toLowerCase()

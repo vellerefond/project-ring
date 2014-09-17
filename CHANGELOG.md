@@ -1,3 +1,5 @@
+###### 0.16.3 - Fixed bug for when loading a project with invalid buffer paths
+
 ###### 0.16.2 - Minor fixes for notifications
 
 ###### 0.16.1 - Visual fixes for notifications and "Use Notifications" observed configuration option
