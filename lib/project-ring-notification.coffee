@@ -2,21 +2,14 @@
 
 module.exports =
 class ProjectRingNotification
-	notification: null
-
-	isEnabled: true
-
-	closeTimeout: null
-
-	animationDelay: 250
-
-	closeDelays:
-		notification: 1500
-		warning: 2500
-		alert: 5000
-
 	createNotification: ->
 		return if @notification
+		@isEnabled = true
+		@animationDelay = 250
+		@closeDelays =
+			notification: 1500
+			warning: 2500
+			alert: 5000
 		@notification = $('<div></div>').on 'click', => @close()
 
 	getActiveNotification: ->

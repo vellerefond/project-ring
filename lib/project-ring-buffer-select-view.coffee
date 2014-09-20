@@ -2,12 +2,6 @@
 
 module.exports =
 class ProjectRingBufferSelectView extends View
-	projectRing: null
-
-	viewModeParameters: null
-
-	isInitialized: false
-
 	@content: ->
 		@div class: 'project-ring-buffer-select overlay from-top', =>
 			@div class: 'controls', =>

@@ -2,12 +2,6 @@
 
 module.exports =
 class ProjectRingView extends SelectListView
-    projectRing: null
-
-    viewModeParameters: null
-
-    isInitialized: false
-
     initialize: (projectRing) ->
         super
         @projectRing = @projectRing or projectRing

@@ -1,3 +1,5 @@
+###### 0.16.5 - Reduced exposed package properties to a minimum
+
 ###### 0.16.4 - Minor behavior fix for configuration option "project-ring.makeTheCurrentProjectTheDefaultOnStartUp"
 
 ###### 0.16.3 - Fixed bug for when loading a project with invalid buffer paths

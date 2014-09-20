@@ -2,14 +2,6 @@
 
 module.exports =
 class ProjectRingInputView extends View
-    projectRing: null
-
-    viewModeParameters: null
-
-    editor: null
-
-    isInitialized: false
-
     @content: ->
         @div class: 'project-ring-input overlay from-top', =>
             @div class: 'editor-container', outlet: 'editorContainer', =>

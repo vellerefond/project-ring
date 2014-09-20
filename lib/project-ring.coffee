@@ -14,25 +14,8 @@ module.exports =
         useFilePatternHiding: false
         useNotifications: true
 
-    projectRingInvariantState: null
-
-    projectRingNotification: null
-
-    projectRingView: null
-
-    projectRingInputView: null
-
-    projectRingBufferSelectView: null
-
-    projectRingId: null
-
-    inProject: false
-
-    statesCache: null
-
-    currentlySavingConfiguration: null
-
-    currentlySettingProjectPath: false
+    activate: (state) ->
+        setTimeout (=> @initialize state), 0
 
     initialize: (state) ->
         if @projectRingInvariantState and @projectRingInvariantState.isInitialized
@@ -129,9 +112,6 @@ module.exports =
         atom.workspaceView.command "project-ring:copy-project-path", => @copy 'projectPath'
         atom.workspaceView.command "project-ring:move-project-path", => @setProjectPath true
         atom.workspaceView.command "project-ring:edit-key-bindings", => @editKeyBindings()
-
-    activate: (state) ->
-        setTimeout (=> @initialize state), 0
 
     setupProjectRingNotification: ->
         @projectRingNotification = new (require './project-ring-notification')
