@@ -49,6 +49,17 @@ module.exports =
         @setupProjectRingNotification()
         @setupAutomaticProjectBuffersSaving()
         @setupAutomaticProjectLoadingOnProjectPathChange()
+        atom.config.observe \
+            'project-ring.makeTheCurrentProjectTheDefaultOnStartUp',
+            null,
+            (makeTheCurrentProjectTheDefaultOnStartUp) =>
+                return unless \
+                    @inProject and
+                    makeTheCurrentProjectTheDefaultOnStartUp and
+                    @statesCache[atom.project.path]
+                atom.config.set \
+                    'project-ring.makeTheCurrentProjectTheDefaultOnStartUp',
+                    @statesCache[atom.project.path].alias
         projectToLoadOnStartUp = (atom.project.path or null) ? atom.config.get 'project-ring.projectToLoadOnStartUp'
         treeView = atom.packages.getLoadedPackage 'tree-view'
         if treeView
