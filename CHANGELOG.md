@@ -1,3 +1,5 @@
+###### 0.16.6 - Code format fixes (coffeescript switch statement refactorings)
+
 ###### 0.16.5 - Reduced exposed package properties to a minimum
 
 ###### 0.16.4 - Minor behavior fix for configuration option "project-ring.makeTheCurrentProjectTheDefaultOnStartUp"
