@@ -729,11 +729,11 @@ module.exports =
 
     handleProjectRingViewSelection: (viewModeParameters, data) ->
         switch viewModeParameters.viewMode
-            when 'project' then \
-                (@processProjectRingViewProjectSelection
+            when 'project'
+                @processProjectRingViewProjectSelection
                     projectState: data
-                    openProjectBuffersOnly: viewModeParameters.openProjectBuffersOnly); \
-                break
+                    openProjectBuffersOnly: viewModeParameters.openProjectBuffersOnly
+            else break
 
     processProjectRingViewProjectSelection: (options) ->
         options = options or {}
@@ -847,7 +847,8 @@ module.exports =
 
     handleProjectRingInputViewInput: (viewModeParameters, data) ->
         switch viewModeParameters.viewMode
-            when 'project' then (@processProjectRingInputViewProjectAlias data, viewModeParameters.renameOnly); break
+            when 'project' then @processProjectRingInputViewProjectAlias data, viewModeParameters.renameOnly
+            else break
 
     processProjectRingInputViewProjectAlias: (alias, renameOnly) ->
         return unless alias and not /^\s*$/.test alias
@@ -855,9 +856,10 @@ module.exports =
 
     handleProjectRingBufferSelectViewSelection: (viewModeParameters, data) ->
         switch viewModeParameters.viewMode
-            when 'add' then (@processProjectRingBufferSelectViewSelection data, true); break
-            when 'ban' then (@processProjectRingBufferSelectViewSelection data, false, true); break
-            when 'always-open' then (@processProjectRingBufferSelectViewSelection data, false, false, true); break
+            when 'add' then @processProjectRingBufferSelectViewSelection data, true
+            when 'ban' then @processProjectRingBufferSelectViewSelection data, false, true
+            when 'always-open' then @processProjectRingBufferSelectViewSelection data, false, false, true
+            else break
 
     processProjectRingBufferSelectViewSelection: (paths, add, ban, alwaysOpen) ->
         return unless paths and paths.length and (if add or ban then @checkIfInProject() else true)
