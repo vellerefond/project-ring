@@ -1,3 +1,9 @@
+###### 0.17.0 - Fixed "Close Previous Project Files" bug (due to Atom's API change; issue #4) and set the configuration to default to true
+* Fixed "Close Previous Project Files" bug (due to Atom's API change; issue #4) and set the configuration to default to true
+* Simplified project selection/switching code for stability
+* Replaced "Skip Saving/Loading Project Files" configuration options with unified "Do Not Save And Restore Open Project Files" configuration option
+* Removed "Keep Only Project Files On Project Selection" configuration option for simplicity
+
 ###### 0.16.6 - Code format fixes (coffeescript switch statement refactorings)
 
 ###### 0.16.5 - Reduced exposed package properties to a minimum

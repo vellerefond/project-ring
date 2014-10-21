@@ -77,7 +77,7 @@
 
 - ### Explanation of the configuration options
 
- - **_Close Previous Project Files:_** If cheched, then loading a project which has files to open, will result in closing the previously loaded project's open files.
+ - **_Close Previous Project Files:_** If cheched, then loading a project which has files to open, will result in closing all the other projects' open files, but will leave any _Always Open_ files or _out-of-project-path_ files open.
 
  - **_File Pattern To Hide:_** This is a JavaScript RegExp pattern with which to decide what to hide in the tree view. A typical usage is to hide every folder beginning with a "." (dot). So one could write _"^\\."_ (without the quotes) in this field.
 
@@ -87,17 +87,13 @@
 
  - **_Keep All Open Files Regardless Of Project:_** If checked, any opened file will be automatically opened again when Atom restarts again but it will not be associated with any project. This way, a changing projects simply changes Atom's notion of the project root path. If any open file is closed, it is removed from the list and not opened again when Atom restarts.
 
- - **_Keep Only Project Files On Project Selection:_** If checked, when loading a project that has files for opening, all other, unrelated files will be closed.
-
  - **_Keep Out Of Path Open Files In Current Project:_** Unless checked, files not belonging to the current project's file path are not saved in the project's state when opened.
 
  - **_Make The Current Project The Default On StartUp:_** If checked, when loading a project that project will be set as the default for when Atom restarts, just as if **_Project To Load On StartUp_** (see below) had been set with that project's alias as the value.
 
  - **_Project To Load On StartUp:_** Give a project's alias of project root path in this field to have it automatically load when Atom starts. When renaming a project and if this project was the one specified in this field, then this field is automatically updated to contains the project's new alias.
 
- - **_Skip Saving Project Files:_** If checked, then opening/closing files will not be reflected in the project's state. This implied **_Skip Opening Project Files_**.
-
- - **_Skip Opening Project Files:_** If checked, then a project's files will not be opened when the project is loaded. Automatic file saving still works though.
+ - **_Do Not Save And Restore Open Project Files:_** If checked, then a project's files will not be saved in the project's state as they are opened nor will they be restored when the project is loaded.
 
  - **_Skip Opening Tree View When Changing Project Path:_** If checked, then the tree view will not automatically opened (if it was previously hidden) when a changing from project to project (e.g., via **_Toggle_**) or setting a new project path (e.g., via **_Set Project Path_**).
 

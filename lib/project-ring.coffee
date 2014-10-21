@@ -1,15 +1,13 @@
 module.exports =
     configDefaults:
-        closePreviousProjectFiles: false
+        closePreviousProjectFiles: true
         filePatternToHide: null
         filePatternToExcludeFromHiding: null
         keepAllOpenFilesRegardlessOfProject: false
-        keepOnlyProjectFilesOnProjectSelection: false
         keepOutOfPathOpenFilesInCurrentProject: false
-        makeTheCurrentProjectTheDefaultOnStartUp: false
+        makeTheCurrentProjectTheDefaultOnStartUp: true
         projectToLoadOnStartUp: null
-        skipSavingProjectFiles: false
-        skipOpeningProjectFiles: false
+        doNotSaveAndRestoreOpenProjectFiles: false
         skipOpeningTreeViewWhenChangingProjectPath: false
         useFilePatternHiding: false
         useNotifications: true
@@ -33,16 +31,12 @@ module.exports =
         @setupAutomaticProjectBuffersSaving()
         @setupAutomaticProjectLoadingOnProjectPathChange()
         atom.config.observe \
-            'project-ring.makeTheCurrentProjectTheDefaultOnStartUp',
-            null,
-            (makeTheCurrentProjectTheDefaultOnStartUp) =>
+            'project-ring.makeTheCurrentProjectTheDefaultOnStartUp', (makeTheCurrentProjectTheDefaultOnStartUp) =>
                 return unless \
                     @inProject and
                     makeTheCurrentProjectTheDefaultOnStartUp and
                     @statesCache[atom.project.path]
-                atom.config.set \
-                    'project-ring.makeTheCurrentProjectTheDefaultOnStartUp',
-                    @statesCache[atom.project.path].alias
+                atom.config.set 'project-ring.projectToLoadOnStartUp', @statesCache[atom.project.path].alias
         projectToLoadOnStartUp = (atom.project.path or null) ? atom.config.get 'project-ring.projectToLoadOnStartUp'
         treeView = atom.packages.getLoadedPackage 'tree-view'
         if treeView
@@ -70,11 +64,11 @@ module.exports =
                         ),
                         0
                 @setProjectRing 'default', projectToLoadOnStartUp
-            atom.config.observe 'project-ring.useFilePatternHiding', null, (useFilePatternHiding) =>
+            atom.config.observe 'project-ring.useFilePatternHiding', (useFilePatternHiding) =>
                 @runFilePatternHiding useFilePatternHiding
-            atom.config.observe 'project-ring.filePatternToHide', null, (filePatternToHide) =>
+            atom.config.observe 'project-ring.filePatternToHide', (filePatternToHide) =>
                 @runFilePatternHiding()
-            atom.config.observe 'project-ring.filePatternToExcludeFromHiding', null, (filePatternToExcludeFromHiding) =>
+            atom.config.observe 'project-ring.filePatternToExcludeFromHiding', (filePatternToExcludeFromHiding) =>
                 @runFilePatternHiding()
         else
             @setProjectRing 'default', projectToLoadOnStartUp
@@ -115,12 +109,12 @@ module.exports =
 
     setupProjectRingNotification: ->
         @projectRingNotification = new (require './project-ring-notification')
-        atom.config.observe 'project-ring.useNotifications', null, (useNotifications) =>
+        atom.config.observe 'project-ring.useNotifications', (useNotifications) =>
             @projectRingNotification.isEnabled = useNotifications
 
     setupAutomaticProjectBuffersSaving: ->
-        atom.config.observe 'project-ring.skipSavingProjectFiles', null, (skipSavingProjectFiles) =>
-            if skipSavingProjectFiles
+        atom.config.observe 'project-ring.doNotSaveAndRestoreOpenProjectFiles', (doNotSaveAndRestoreOpenProjectFiles) =>
+            if doNotSaveAndRestoreOpenProjectFiles
                 atom.project.off 'buffer-created.project-ring'
                 atom.project.buffers.forEach (buffer) -> buffer.off 'destroyed.project-ring'
                 return unless @inProject
@@ -164,10 +158,10 @@ module.exports =
                         @alwaysOpenBufferPath openProjectBuffer.file.path
                         return
                     return unless \
-                        atom.project.path and \
+                        atom.project.path and
                         (new RegExp(
                             '^' + @turnToPathRegExp(atom.project.path), 'i'
-                        ).test(openProjectBuffer.file.path) or \
+                        ).test(openProjectBuffer.file.path) or
                         atom.config.get 'project-ring.keepOutOfPathOpenFilesInCurrentProject')
                     @addOpenBufferPathToProject openProjectBuffer.file.path
         setTimeout (
@@ -179,7 +173,7 @@ module.exports =
 
     setupAutomaticProjectLoadingOnProjectPathChange: ->
         atom.project.on 'path-changed', =>
-            return unless atom.project.path and not @inProject and not @currentlySettingProjectPath
+            return unless atom.project.path and not @currentlySettingProjectPath
             @processProjectRingViewProjectSelection
                 projectState: @statesCache[atom.project.path]
                 isAsynchronousProjectPathChange: true
@@ -325,8 +319,12 @@ module.exports =
                             (@statesCache[stateKey].alias is projectSpecificationToLoad or \
                              @statesCache[stateKey].projectPath is projectSpecificationToLoad)
                                 continue
-                        @processProjectRingViewProjectSelection projectState: @statesCache[stateKey], isDefault: true
-                        @runFilePatternHiding()
+                        setTimeout (
+                                =>
+                                    @processProjectRingViewProjectSelection projectState: @statesCache[stateKey]
+                                    @runFilePatternHiding()
+                            ),
+                            0
                         break
         catch error
             @projectRingNotification.alert \
@@ -369,7 +367,7 @@ module.exports =
             @projectRingBufferSelectView = new (require './project-ring-buffer-select-view') @
 
     getOpenBufferPaths: ->
-        unless atom.config.get 'project-ring.skipSavingProjectFiles'
+        unless atom.config.get 'project-ring.doNotSaveAndRestoreOpenProjectFiles'
             return \
                 (atom.workspace.getEditors().filter (editor) ->
                     editor.buffer.file).map (editor) ->
@@ -673,6 +671,9 @@ module.exports =
                             (atom.packages.getLoadedPackage 'tree-view')?.mainModule.treeView?.show?()
                         @projectRingNotification.notify 'The project path has been set to "' + atom.project.path + '"'
                     atom.project.setPath pathsToOpen[0]
+                    @processProjectRingViewProjectSelection
+                        projectState: @statesCache[pathsToOpen[0]]
+                        isAsynchronousProjectPathChange: true
                     return
                 if @statesCache[atom.project.path]
                     @statesCache[pathsToOpen[0]] = @statesCache[atom.project.path]
@@ -735,6 +736,29 @@ module.exports =
                     openProjectBuffersOnly: viewModeParameters.openProjectBuffersOnly
             else break
 
+    closeProjectBuffersOnBufferCreate: () ->
+        atom.project.once 'buffer-created.project-ring', (bufferCreated) =>
+            bufferPathsToAlwaysOpen = @statesCache['<~>'].openBufferPaths.map (openBufferPath) ->
+                openBufferPath.toLowerCase()
+            projectRelatedBufferPaths = {}
+            (Object.keys(@statesCache).filter (projectPath) -> projectPath isnt '<~>').forEach (projectPath) =>
+                @statesCache[projectPath].openBufferPaths.forEach (openBufferPath) ->
+                    projectRelatedBufferPaths[openBufferPath.toLowerCase()] = null
+            projectRelatedBufferPaths = Object.keys projectRelatedBufferPaths
+            projectUnrelatedBufferPaths = []
+            (atom.project.buffers.filter (buffer) -> buffer.file).forEach (buffer) =>
+                    bufferFilePathProxy = buffer.file.path.toLowerCase()
+                    unless bufferFilePathProxy in projectRelatedBufferPaths
+                        projectUnrelatedBufferPaths.push bufferFilePathProxy
+            (atom.project.buffers.filter (buffer) ->
+                bufferPath = buffer.file?.path.toLowerCase()
+                bufferPath and
+                bufferPath not in bufferPathsToAlwaysOpen and
+                bufferPath not in projectUnrelatedBufferPaths).forEach (buffer) ->
+                        buffer.off 'destroyed.project-ring'
+                        buffer.save()
+                        buffer.destroy()
+
     processProjectRingViewProjectSelection: (options) ->
         options = options or {}
         return unless options.projectState
@@ -749,7 +773,7 @@ module.exports =
         unless @statesCache[options.projectState.projectPath].bannedBufferPaths
             @statesCache[options.projectState.projectPath].bannedBufferPaths = []
             options.projectState.bannedBufferPaths = []
-        previousProjectPath = atom.project.path
+        oldProjectPath = atom.project.path
         unless options.openProjectBuffersOnly
             unless options.projectState.projectPath is atom.project.path and not options.isAsynchronousProjectPathChange
                 @currentlySettingProjectPath = true
@@ -770,80 +794,46 @@ module.exports =
                 @projectRingNotification.notify 'Project "' + options.projectState.alias + '" has been loaded'
             if atom.config.get 'project-ring.makeTheCurrentProjectTheDefaultOnStartUp'
                 atom.config.set 'project-ring.projectToLoadOnStartUp', options.projectState.alias
-        validOpenBufferPaths = options.projectState.openBufferPaths.filter (openBufferPath) -> _fs.existsSync(openBufferPath)
+        validOpenBufferPaths = options.projectState.openBufferPaths.filter (openBufferPath) ->
+            _fs.existsSync(openBufferPath)
         if \
-            not options.openProjectBuffersOnly and \
-            previousProjectPath and \
-            previousProjectPath isnt atom.project.path and \
-            @statesCache[previousProjectPath] and \
-            atom.project.buffers.length and \
+            not options.openProjectBuffersOnly and
+            oldProjectPath and
+            (oldProjectPath isnt atom.project.path or options.isAsynchronousProjectPathChange) and
+            atom.project.buffers.length and
             atom.config.get 'project-ring.closePreviousProjectFiles'
-                previousProjectStateOpenBufferPaths =
-                    @statesCache[previousProjectPath].openBufferPaths.map (openBufferPath) ->
-                        openBufferPath.toLowerCase()
-                atom.project.once 'buffer-created.project-ring', (bufferCreated) =>
-                    setTimeout (
-                            =>
-                                projectStateOpenBufferPaths =
-                                    options.projectState.openBufferPaths.map (openBufferPath) ->
-                                        openBufferPath.toLowerCase()
-                                (atom.project.buffers.filter (buffer) ->
-                                    bufferPath = buffer.file?.path.toLowerCase()
-                                    bufferPath and \
-                                    bufferPath in previousProjectStateOpenBufferPaths and \
-                                    bufferPath not in projectStateOpenBufferPaths).forEach (buffer) ->
-                                            buffer.off 'destroyed.project-ring'
-                                            buffer.save()
-                                            buffer.destroy()
-                        ),
-                        @projectRingInvariantState.deletionDelay
+                @closeProjectBuffersOnBufferCreate()
+                atom.workspaceView.triggerHandler 'application:new-file'
+        removeEmtpyBuffers = (bufferCreated) =>
+            return unless not bufferCreated or bufferCreated.file
+            atom.project.off 'buffer-created.project-ring-remove-empty'
+            setTimeout (
+                    ->
+                        (atom.project.buffers.filter (buffer) ->
+                            not buffer.file and buffer.cachedText is '').forEach (buffer) ->
+                                return if \
+                                    bufferCreated is buffer or
+                                    (atom.project.buffers.length is 1 and
+                                     not atom.project.buffers[0].file and
+                                     atom.project.buffers[0].cachedText is '' and
+                                     atom.config.get 'core.destroyEmptyPanes')
+                                buffer.off 'destroyed.project-ring'
+                                buffer.destroy()
+                ),
+                @projectRingInvariantState.emptyBufferDestroyDelayOnStartup
+        if \
+            (options.openProjectBuffersOnly or
+             not atom.config.get 'project-ring.doNotSaveAndRestoreOpenProjectFiles') and
+            validOpenBufferPaths.length
+                atom.project.on 'buffer-created.project-ring-remove-empty', removeEmtpyBuffers
                 unless \
-                    (validOpenBufferPaths.length and \
-                    not atom.config.get 'project-ring.skipOpeningProjectFiles') or \
-                    (atom.project.buffers.find (buffer) ->
-                        not buffer.file or \
-                        buffer.file.path.toLowerCase() not in previousProjectStateOpenBufferPaths)
-                            atom.workspaceView.triggerHandler 'application:new-file'
-        if options.openProjectBuffersOnly or not atom.config.get 'project-ring.skipOpeningProjectFiles'
-            if options.projectState.openBufferPaths and options.projectState.openBufferPaths.length
-                unless \
-                    options.openProjectBuffersOnly or \
-                    not atom.config.get 'project-ring.keepOnlyProjectFilesOnProjectSelection'
-                        atom.project.buffers.forEach (buffer) =>
-                            bufferPathProxy = buffer.file.path.toLowerCase()
-                            unless \
-                                buffer.file and \
-                                ((@statesCache['<~>'].openBufferPaths.find (openBufferPath) -> \
-                                    openBufferPath.toLowerCase() is bufferPathProxy) or \
-                                (validOpenBufferPaths.find (validOpenBufferPath) ->
-                                    validOpenBufferPath.toLowerCase() is bufferPathProxy))
-                                        buffer.off 'destroyed.project-ring'
-                                        buffer.save()
-                                        buffer.destroy()
-                unless \
-                    options.openProjectBuffersOnly or \
+                    options.openProjectBuffersOnly or
                     options.projectState.openBufferPaths.length is validOpenBufferPaths.length
                         @statesCache[options.projectState.projectPath].openBufferPaths = validOpenBufferPaths
                         @saveProjectRing()
-                currentlyOpenBufferPaths = @getOpenBufferPaths().map (openBufferPath) ->
-                    openBufferPath.toLowerCase()
-                bufferPathsToOpen = validOpenBufferPaths.filter (validOpenBufferPath) ->
-                    validOpenBufferPath.toLowerCase() not in currentlyOpenBufferPaths
-                if bufferPathsToOpen.length
-                    atom.open pathsToOpen: bufferPathsToOpen, newWindow: false
-                    if options.isDefault
-                        atom.project.on 'buffer-created.project-ring-remove-empty', (bufferCreated) =>
-                            return unless bufferCreated.file
-                            atom.project.off 'buffer-created.project-ring-remove-empty'
-                            setTimeout (
-                                    ->
-                                        (atom.project.buffers.filter (buffer) ->
-                                            not buffer.file and buffer.cachedText is '').forEach (buffer) ->
-                                                return if bufferCreated is buffer
-                                                buffer.off 'destroyed.project-ring'
-                                                buffer.destroy()
-                                ),
-                                @projectRingInvariantState.emptyBufferDestroyDelayOnStartup
+                atom.open pathsToOpen: validOpenBufferPaths, newWindow: false
+        else if atom.config.get 'project-ring.closePreviousProjectFiles'
+            removeEmtpyBuffers()
 
     handleProjectRingInputViewInput: (viewModeParameters, data) ->
         switch viewModeParameters.viewMode
@@ -872,8 +862,8 @@ module.exports =
 
     copy: (copyKey) ->
         return unless \
-            @checkIfInProject() and \
-            not /^\s*$/.test(atom.project.path) and \
+            @checkIfInProject() and
+            not /^\s*$/.test(atom.project.path) and
             @statesCache[atom.project.path]?[copyKey]
         try
             require('clipboard').writeText @statesCache[atom.project.path][copyKey]
