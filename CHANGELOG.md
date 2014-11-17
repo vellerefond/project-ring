@@ -1,3 +1,5 @@
+###### 0.18.0 - Fixed issues #5 (Cannot set property 'treeViewState' of undefined) and #6 (Everytime I switch projects a opened file in the project I am opening gets its content erased)
+
 ###### 0.17.0 - Fixed "Close Previous Project Files" bug (due to Atom's API change; issue #4) and set the configuration to default to true
 * Fixed "Close Previous Project Files" bug (due to Atom's API change; issue #4) and set the configuration to default to true
 * Simplified project selection/switching code for stability
