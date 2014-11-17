@@ -73,18 +73,19 @@ module.exports =
                 @runFilePatternHiding()
         else
             @setProjectRing 'default', projectToLoadOnStartUp
-        _fs = require 'fs'
-        validDefaultBufferPathsToOpen = @statesCache['<~>'].openBufferPaths.filter (openBufferPath) ->
-            _fs.existsSync openBufferPath
-        if validDefaultBufferPathsToOpen.length
-            currentlyOpenBufferPaths = @getOpenBufferPaths().map (openBufferPath) -> openBufferPath.toLowerCase()
-            bufferPathsToOpen = validDefaultBufferPathsToOpen.filter (validDefaultBufferPathToOpen) ->
-                validDefaultBufferPathToOpen not in currentlyOpenBufferPaths
-            if bufferPathsToOpen.length
-                atom.open pathsToOpen: bufferPathsToOpen, newWindow: false
-            unless @statesCache['<~>'].openBufferPaths.length is validDefaultBufferPathsToOpen.length
-                @statesCache['<~>'].openBufferPaths = validDefaultBufferPathsToOpen
-                @saveProjectRing()
+        atom.project.once 'project-ring-states-cache-initialized', =>
+            _fs = require 'fs'
+            validDefaultBufferPathsToOpen = @statesCache['<~>'].openBufferPaths.filter (openBufferPath) ->
+                _fs.existsSync openBufferPath
+            if validDefaultBufferPathsToOpen.length
+                currentlyOpenBufferPaths = @getOpenBufferPaths().map (openBufferPath) -> openBufferPath.toLowerCase()
+                bufferPathsToOpen = validDefaultBufferPathsToOpen.filter (validDefaultBufferPathToOpen) ->
+                    validDefaultBufferPathToOpen not in currentlyOpenBufferPaths
+                if bufferPathsToOpen.length
+                    atom.open pathsToOpen: bufferPathsToOpen, newWindow: false
+                unless @statesCache['<~>'].openBufferPaths.length is validDefaultBufferPathsToOpen.length
+                    @statesCache['<~>'].openBufferPaths = validDefaultBufferPathsToOpen
+                    @saveProjectRing()
         atom.workspaceView.command 'tree-view:toggle', => @runFilePatternHiding()
         atom.workspaceView.command "project-ring:add", => @add()
         atom.workspaceView.command "project-ring:add-as", => @addAs()
@@ -336,6 +337,17 @@ module.exports =
                 'Could not load the project ring data for id: "' + @projectRingId + '" (' + error + ')'
             return
         @statesCache['<~>'] = openBufferPaths: [], isIgnored: true unless @statesCache['<~>']
+        # ENSURE THAT ALL @statesCache KEYS ARE LOWERCASE
+        fixedStatesCacheKeys = false
+        for stateKey in Object.keys @statesCache
+            stateKeyProxy = @getAtomProjectPathAsKey stateKey
+            unless stateKey is stateKeyProxy
+                @statesCache[stateKeyProxy] = @statesCache[stateKey]
+                delete @statesCache[stateKey]
+                fixedStatesCacheKeys = true
+        @saveProjectRing() if fixedStatesCacheKeys
+        atom.project.emit 'project-ring-states-cache-initialized'
+
 
     saveProjectRing: ->
         return unless @projectRingId
