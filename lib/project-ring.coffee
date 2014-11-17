@@ -771,7 +771,6 @@ module.exports =
             else break
 
     closeProjectBuffersOnBufferCreate: () ->
-        # atom.project.once 'buffer-created.project-ring', (bufferCreated) =>
         bufferPathsToAlwaysOpen = @statesCache['<~>'].openBufferPaths.map (openBufferPath) ->
             openBufferPath.toLowerCase()
         projectRelatedBufferPaths = {}
