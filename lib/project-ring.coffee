@@ -149,13 +149,13 @@ module.exports =
                 atom.project.buffers.forEach (buffer) =>
                     buffer.off 'destroyed.project-ring'
                     buffer.on \
-                        'destroyed.project-ring', \
+                        'destroyed.project-ring',
                         onBufferDestroyedProjectRingEventHandlerFactory buffer
                 atom.project.on 'buffer-created.project-ring', (openProjectBuffer) =>
                     return unless openProjectBuffer.file
                     openProjectBuffer.off 'destroyed.project-ring'
                     openProjectBuffer.on \
-                        'destroyed.project-ring', \
+                        'destroyed.project-ring',
                         onBufferDestroyedProjectRingEventHandlerFactory openProjectBuffer
                     if atom.config.get 'project-ring.keepAllOpenFilesRegardlessOfProject'
                         @alwaysOpenBufferPath openProjectBuffer.file.path
@@ -514,9 +514,10 @@ module.exports =
                     aliasTemp = alias + (++salt).toString()
                 alias = aliasTemp
         projectToLoadOnStartUp = atom.config.get('project-ring.projectToLoadOnStartUp') or ''
-        if @statesCache[atomProjectPathAsKeyProxy] and \
-            (@statesCache[atomProjectPathAsKeyProxy].alias is projectToLoadOnStartUp or \
-            atomProjectPathAsKeyProxy is projectToLoadOnStartUp.toLowerCase()) and \
+        if \
+            @statesCache[atomProjectPathAsKeyProxy] and
+            (@statesCache[atomProjectPathAsKeyProxy].alias is projectToLoadOnStartUp or
+             atomProjectPathAsKeyProxy is projectToLoadOnStartUp.toLowerCase()) and
             alias isnt @statesCache[atomProjectPathAsKeyProxy].alias
                 atom.config.set 'project-ring.projectToLoadOnStartUp', alias
         if options.renameOnly
@@ -588,11 +589,11 @@ module.exports =
                 @statesCache[atomProjectPathAsKeyProxy].openBufferPaths\
                     .map (openBufferPath) -> openBufferPath.toLowerCase()
             (Object.keys(@statesCache).filter (projectPath) =>
-                not @statesCache[projectPath].isIgnored and \
+                not @statesCache[projectPath].isIgnored and
                 projectPath isnt atomProjectPathAsKeyProxy).forEach (projectPath) =>
                     (@statesCache[projectPath].openBufferPaths.filter (openBufferPath) ->
                         openBufferPathProxy = openBufferPath.toLowerCase()
-                        openBufferPathProxy not in buffersOfCurrentProject and \
+                        openBufferPathProxy not in buffersOfCurrentProject and
                         not (bufferPathsToOfferForAddition.find (bufferPathSpec) ->
                             bufferPathSpec.path.toLowerCase() is openBufferPathProxy)).forEach (openBufferPath) =>
                                 description = openBufferPath
@@ -604,8 +605,8 @@ module.exports =
                                     path: openBufferPath
             (atom.project.buffers.filter (buffer) ->
                 bufferPathProxy = buffer.file?.path.toLowerCase()
-                buffer.file and \
-                bufferPathProxy not in buffersOfCurrentProject and \
+                buffer.file and
+                bufferPathProxy not in buffersOfCurrentProject and
                 not (bufferPathsToOfferForAddition.find (bufferPathSpec) ->
                     bufferPathSpec.path.toLowerCase() is bufferPathProxy)).forEach (buffer) ->
                         description = buffer.file.path
@@ -628,7 +629,7 @@ module.exports =
         unless @projectRingBufferSelectView.hasParent()
             bufferPathsToOfferForBanning = []
             (atom.project.buffers.filter (buffer) ->
-                buffer.file and \
+                buffer.file and
                 not (bufferPathsToOfferForBanning.find (bufferPathSpec) ->
                     bufferPathSpec.path.toLowerCase() is buffer.file.path.toLowerCase())).forEach (buffer) ->
                         description = buffer.file.path
@@ -646,7 +647,7 @@ module.exports =
         unless @projectRingBufferSelectView.hasParent()
             bufferPathsToOfferForAlwaysOpening = []
             (atom.project.buffers.filter (buffer) ->
-                buffer.file and \
+                buffer.file and
                 not (bufferPathsToOfferForAlwaysOpening.find (bufferPathSpec) ->
                     bufferPathSpec.path.toLowerCase() is buffer.file.path.toLowerCase())).forEach (buffer) ->
                         description = buffer.file.path
@@ -753,8 +754,9 @@ module.exports =
         return unless projectState and @statesCache and @statesCache[projectState.projectPath]
         @projectRingView.destroy() if @projectRingView
         projectStateProjectPathAsKeyProxy = @getAtomProjectPathAsKey projectState.projectPath
-        if atom.project.path and \
-            @statesCache[projectStateProjectPathAsKeyProxy] and \
+        if \
+            atom.project.path and
+            @statesCache[projectStateProjectPathAsKeyProxy] and
             projectStateProjectPathAsKeyProxy is @getAtomProjectPathAsKey()
                 @inProject = false
         delete @statesCache[projectStateProjectPathAsKeyProxy]
@@ -769,27 +771,27 @@ module.exports =
             else break
 
     closeProjectBuffersOnBufferCreate: () ->
-        atom.project.once 'buffer-created.project-ring', (bufferCreated) =>
-            bufferPathsToAlwaysOpen = @statesCache['<~>'].openBufferPaths.map (openBufferPath) ->
-                openBufferPath.toLowerCase()
-            projectRelatedBufferPaths = {}
-            (Object.keys(@statesCache).filter (projectPath) -> projectPath isnt '<~>').forEach (projectPath) =>
-                @statesCache[projectPath].openBufferPaths.forEach (openBufferPath) ->
-                    projectRelatedBufferPaths[openBufferPath.toLowerCase()] = null
-            projectRelatedBufferPaths = Object.keys projectRelatedBufferPaths
-            projectUnrelatedBufferPaths = []
-            (atom.project.buffers.filter (buffer) -> buffer.file).forEach (buffer) =>
-                    bufferFilePathProxy = buffer.file.path.toLowerCase()
-                    unless bufferFilePathProxy in projectRelatedBufferPaths
-                        projectUnrelatedBufferPaths.push bufferFilePathProxy
-            (atom.project.buffers.filter (buffer) ->
-                bufferPath = buffer.file?.path.toLowerCase()
-                bufferPath and
-                bufferPath not in bufferPathsToAlwaysOpen and
-                bufferPath not in projectUnrelatedBufferPaths).forEach (buffer) ->
-                        buffer.off 'destroyed.project-ring'
-                        buffer.save()
-                        buffer.destroy()
+        # atom.project.once 'buffer-created.project-ring', (bufferCreated) =>
+        bufferPathsToAlwaysOpen = @statesCache['<~>'].openBufferPaths.map (openBufferPath) ->
+            openBufferPath.toLowerCase()
+        projectRelatedBufferPaths = {}
+        (Object.keys(@statesCache).filter (projectPath) -> projectPath isnt '<~>').forEach (projectPath) =>
+            @statesCache[projectPath].openBufferPaths.forEach (openBufferPath) ->
+                projectRelatedBufferPaths[openBufferPath.toLowerCase()] = null
+        projectRelatedBufferPaths = Object.keys projectRelatedBufferPaths
+        projectUnrelatedBufferPaths = []
+        (atom.project.buffers.filter (buffer) -> buffer.file).forEach (buffer) =>
+                bufferFilePathProxy = buffer.file.path.toLowerCase()
+                unless bufferFilePathProxy in projectRelatedBufferPaths
+                    projectUnrelatedBufferPaths.push bufferFilePathProxy
+        (atom.project.buffers.filter (buffer) ->
+            bufferPath = buffer.file?.path.toLowerCase()
+            bufferPath and
+            bufferPath not in bufferPathsToAlwaysOpen and
+            bufferPath not in projectUnrelatedBufferPaths).forEach (buffer) ->
+                    buffer.off 'destroyed.project-ring'
+                    buffer.save()
+                    buffer.destroy()
 
     processProjectRingViewProjectSelection: (options) ->
         options = options or {}
@@ -840,7 +842,6 @@ module.exports =
             atom.project.buffers.length and
             atom.config.get 'project-ring.closePreviousProjectFiles'
                 @closeProjectBuffersOnBufferCreate()
-                atom.workspaceView.triggerHandler 'application:new-file'
         removeEmtpyBuffers = (bufferCreated) =>
             return unless not bufferCreated or bufferCreated.file
             atom.project.off 'buffer-created.project-ring-remove-empty'
