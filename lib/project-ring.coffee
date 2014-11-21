@@ -177,6 +177,7 @@ module.exports =
     setupAutomaticProjectLoadingOnProjectPathChange: ->
         atom.project.on 'path-changed', =>
             return unless atom.project.path and not @currentlySettingProjectPath
+            @unlink true, true
             @processProjectRingViewProjectSelection
                 projectState: @statesCache[@getAtomProjectPathAsKey()]
                 isAsynchronousProjectPathChange: true
@@ -671,11 +672,12 @@ module.exports =
         @saveProjectRing()
         @projectRingNotification.notify 'Project "' + alias + '" has been deleted' if alias
 
-    unlink: (doNotShowNotification) ->
+    unlink: (doNotShowNotification, doNotAffectAtom) ->
         @projectRingView.destroy() if @projectRingView
         return unless atom.project.path and not /^\s*$/.test atom.project.path
-        (atom.packages.getLoadedPackage 'tree-view')?.mainModule.treeView?.detach?()
-        atom.project.setPath null
+        unless doNotAffectAtom
+            (atom.packages.getLoadedPackage 'tree-view')?.mainModule.treeView?.detach?()
+            atom.project.setPath null
         @inProject = false
         @projectRingNotification.notify 'No project is currently loaded' unless doNotShowNotification
 
