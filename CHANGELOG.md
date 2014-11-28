@@ -1,3 +1,5 @@
+###### 0.18.2 - Logic fix for when closing other project buffers upon switching projects
+
 ###### 0.18.1 - Minor logic fix for when changing project paths
 
 ###### 0.18.0 - Fixed issues #5 (Cannot set property 'treeViewState' of undefined) and #6 (Everytime I switch projects a opened file in the project I am opening gets its content erased)

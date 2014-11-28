@@ -141,8 +141,9 @@ module.exports =
                                     if (@statesCache[atomProjectPathAsKeyProxy].openBufferPaths.find (openBufferPath) ->
                                             openBufferPath.toLowerCase() is bufferDestroyedPathProxy)
                                         @statesCache[atomProjectPathAsKeyProxy].openBufferPaths =
-                                            @statesCache[atomProjectPathAsKeyProxy].openBufferPaths.filter (openBufferPath) =>
-                                                openBufferPath.toLowerCase() isnt bufferDestroyedPathProxy
+                                            @statesCache[atomProjectPathAsKeyProxy].openBufferPaths
+                                                .filter (openBufferPath) =>
+                                                    openBufferPath.toLowerCase() isnt bufferDestroyedPathProxy
                                         @saveProjectRing()
                             ),
                             @projectRingInvariantState.deletionDelay
@@ -791,8 +792,8 @@ module.exports =
             bufferPath not in bufferPathsToAlwaysOpen and
             bufferPath not in projectUnrelatedBufferPaths).forEach (buffer) ->
                     buffer.off 'destroyed.project-ring'
+                    buffer.once 'saved', -> buffer.destroy()
                     buffer.save()
-                    buffer.destroy()
 
     processProjectRingViewProjectSelection: (options) ->
         options = options or {}
