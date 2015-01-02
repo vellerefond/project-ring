@@ -844,7 +844,7 @@ module.exports =
             atom.project.buffers.length and
             atom.config.get 'project-ring.closePreviousProjectFiles'
                 @closeProjectBuffersOnBufferCreate()
-        removeEmtpyBuffers = (bufferCreated) =>
+        removeEmptyBuffers = (bufferCreated) =>
             return unless not bufferCreated or bufferCreated.file
             atom.project.off 'buffer-created.project-ring-remove-empty'
             setTimeout (
@@ -865,7 +865,7 @@ module.exports =
             (options.openProjectBuffersOnly or
              not atom.config.get 'project-ring.doNotSaveAndRestoreOpenProjectFiles') and
             validOpenBufferPaths.length
-                atom.project.on 'buffer-created.project-ring-remove-empty', removeEmtpyBuffers
+                atom.project.on 'buffer-created.project-ring-remove-empty', removeEmptyBuffers
                 unless \
                     options.openProjectBuffersOnly or
                     options.projectState.openBufferPaths.length is validOpenBufferPaths.length
@@ -873,7 +873,7 @@ module.exports =
                         @saveProjectRing()
                 atom.open pathsToOpen: validOpenBufferPaths, newWindow: false
         else if atom.config.get 'project-ring.closePreviousProjectFiles'
-            removeEmtpyBuffers()
+            removeEmptyBuffers()
 
     handleProjectRingInputViewInput: (viewModeParameters, data) ->
         switch viewModeParameters.viewMode

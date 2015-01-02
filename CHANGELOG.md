@@ -1,3 +1,5 @@
+###### 0.18.3 - Minor syntactic code fix
+
 ###### 0.18.2 - Logic fix for when closing other project buffers upon switching projects
 
 ###### 0.18.1 - Minor logic fix for when changing project paths
