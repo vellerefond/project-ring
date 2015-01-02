@@ -39,6 +39,18 @@ module.exports =
                     @statesCache[atomProjectPathAsKeyProxy]
                 atom.config.set 'project-ring.projectToLoadOnStartUp', @statesCache[atomProjectPathAsKeyProxy].alias
         projectToLoadOnStartUp = (atom.project.path or null) ? atom.config.get 'project-ring.projectToLoadOnStartUp'
+        atom.project.once 'project-ring-states-cache-initialized', =>
+            _fs = require 'fs'
+            validDefaultBufferPathsToOpen = @statesCache['<~>'].openBufferPaths.filter (openBufferPath) ->
+                _fs.existsSync openBufferPath
+            if validDefaultBufferPathsToOpen.length
+                currentlyOpenBufferPaths = @getOpenBufferPaths().map (openBufferPath) -> openBufferPath.toLowerCase()
+                bufferPathsToOpen = validDefaultBufferPathsToOpen.filter (validDefaultBufferPathToOpen) ->
+                    validDefaultBufferPathToOpen not in currentlyOpenBufferPaths
+                atom.workspace.openSync bufferPath for bufferPath in bufferPathsToOpen
+                unless @statesCache['<~>'].openBufferPaths.length is validDefaultBufferPathsToOpen.length
+                    @statesCache['<~>'].openBufferPaths = validDefaultBufferPathsToOpen
+                    @saveProjectRing()
         treeView = atom.packages.getLoadedPackage 'tree-view'
         if treeView
             unless treeView?.mainModule.treeView?.updateRoot
@@ -73,19 +85,6 @@ module.exports =
                 @runFilePatternHiding()
         else
             @setProjectRing 'default', projectToLoadOnStartUp
-        atom.project.once 'project-ring-states-cache-initialized', =>
-            _fs = require 'fs'
-            validDefaultBufferPathsToOpen = @statesCache['<~>'].openBufferPaths.filter (openBufferPath) ->
-                _fs.existsSync openBufferPath
-            if validDefaultBufferPathsToOpen.length
-                currentlyOpenBufferPaths = @getOpenBufferPaths().map (openBufferPath) -> openBufferPath.toLowerCase()
-                bufferPathsToOpen = validDefaultBufferPathsToOpen.filter (validDefaultBufferPathToOpen) ->
-                    validDefaultBufferPathToOpen not in currentlyOpenBufferPaths
-                if bufferPathsToOpen.length
-                    atom.open pathsToOpen: bufferPathsToOpen, newWindow: false
-                unless @statesCache['<~>'].openBufferPaths.length is validDefaultBufferPathsToOpen.length
-                    @statesCache['<~>'].openBufferPaths = validDefaultBufferPathsToOpen
-                    @saveProjectRing()
         atom.workspaceView.command 'tree-view:toggle', => @runFilePatternHiding()
         atom.workspaceView.command "project-ring:add", => @add()
         atom.workspaceView.command "project-ring:add-as", => @addAs()
@@ -321,15 +320,18 @@ module.exports =
                 projectSpecificationToLoad and \
                 not /^\s*$/.test(projectSpecificationToLoad) and \
                 @statesCache
+                    projectSpecificationToLoad = projectSpecificationToLoad.toLowerCase()
                     for stateKey in Object.keys @statesCache
                         unless \
                             not @statesCache[stateKey].isIgnored and \
-                            (@statesCache[stateKey].alias is projectSpecificationToLoad or \
-                             @statesCache[stateKey].projectPath is projectSpecificationToLoad)
+                            (@statesCache[stateKey].alias.toLowerCase() is projectSpecificationToLoad or \
+                             @statesCache[stateKey].projectPath.toLowerCase() is projectSpecificationToLoad)
                                 continue
+                        stateKeyToUseForProjectLoading = stateKey
                         setTimeout (
                                 =>
-                                    @processProjectRingViewProjectSelection projectState: @statesCache[stateKey]
+                                    @processProjectRingViewProjectSelection
+                                        projectState: @statesCache[stateKeyToUseForProjectLoading]
                                     @runFilePatternHiding()
                             ),
                             0
@@ -349,7 +351,6 @@ module.exports =
                 fixedStatesCacheKeys = true
         @saveProjectRing() if fixedStatesCacheKeys
         atom.project.emit 'project-ring-states-cache-initialized'
-
 
     saveProjectRing: ->
         return unless @projectRingId
@@ -871,7 +872,7 @@ module.exports =
                     options.projectState.openBufferPaths.length is validOpenBufferPaths.length
                         @statesCache[options.projectState.projectPath].openBufferPaths = validOpenBufferPaths
                         @saveProjectRing()
-                atom.open pathsToOpen: validOpenBufferPaths, newWindow: false
+                atom.workspace.openSync bufferPath for bufferPath in validOpenBufferPaths
         else if atom.config.get 'project-ring.closePreviousProjectFiles'
             removeEmptyBuffers()
 
@@ -922,4 +923,4 @@ module.exports =
         unless _fs.existsSync keyBindingsFilePath
             @projectRingNotification.alert 'Could not find the default Project Ring key bindings file.'
             return
-        atom.open pathsToOpen: [ keyBindingsFilePath ], newWindow: false
+        atom.workspace.openSync keyBindingsFilePath
