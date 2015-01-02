@@ -1,3 +1,5 @@
+###### 0.18.5 - Minor code logic fix
+
 ###### 0.18.4 - Using synchronous open for project files and fixes regarding the project loading logic
 
 ###### 0.18.3 - Minor syntactic code fix

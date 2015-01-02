@@ -376,7 +376,7 @@ module.exports =
     loadProjectRingView: ->
         unless @projectRingView
             ProjectRingView = require './project-ring-view'
-            @projectRingView = new ProjectRingView @ unless @projectRingView
+            @projectRingView = new ProjectRingView @
 
     loadProjectRingInputView: ->
         unless @projectRingInputView
