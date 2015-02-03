@@ -1,4 +1,4 @@
-{ View, EditorView } = require 'atom'
+{ View, EditorView } = require 'atom-space-pen-views'
 
 module.exports =
 class ProjectRingInputView extends View

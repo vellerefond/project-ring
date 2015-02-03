@@ -85,28 +85,28 @@ module.exports =
                 @runFilePatternHiding()
         else
             @setProjectRing 'default', projectToLoadOnStartUp
-        atom.workspaceView.command 'tree-view:toggle', => @runFilePatternHiding()
-        atom.workspaceView.command "project-ring:add", => @add()
-        atom.workspaceView.command "project-ring:add-as", => @addAs()
-        atom.workspaceView.command "project-ring:rename", => @addAs true
-        atom.workspaceView.command "project-ring:toggle", => @toggle()
-        atom.workspaceView.command "project-ring:open-project-files", => @toggle true
-        atom.workspaceView.command "project-ring:add-current-file-to-current-project", =>
+        atom.commands.add 'atom-workspace', 'tree-view:toggle', => @runFilePatternHiding()
+        atom.commands.add 'atom-workspace', "project-ring:add", => @add()
+        atom.commands.add 'atom-workspace', "project-ring:add-as", => @addAs()
+        atom.commands.add 'atom-workspace', "project-ring:rename", => @addAs true
+        atom.commands.add 'atom-workspace', "project-ring:toggle", => @toggle()
+        atom.commands.add 'atom-workspace', "project-ring:open-project-files", => @toggle true
+        atom.commands.add 'atom-workspace', "project-ring:add-current-file-to-current-project", =>
             @addOpenBufferPathToProject null, true
-        atom.workspaceView.command "project-ring:add-files-to-current-project", => @addFilesToProject()
-        atom.workspaceView.command "project-ring:ban-current-file-from-current-project", =>
+        atom.commands.add 'atom-workspace', "project-ring:add-files-to-current-project", => @addFilesToProject()
+        atom.commands.add 'atom-workspace', "project-ring:ban-current-file-from-current-project", =>
             @banOpenBufferPathFromProject()
-        atom.workspaceView.command "project-ring:ban-files-from-current-project", => @banFilesFromProject()
-        atom.workspaceView.command "project-ring:always-open-current-file", => @alwaysOpenBufferPath()
-        atom.workspaceView.command "project-ring:always-open-files", => @alwaysOpenFiles()
-        atom.workspaceView.command "project-ring:delete", => @delete()
-        atom.workspaceView.command "project-ring:unlink", => @unlink()
-        atom.workspaceView.command "project-ring:set-project-path", => @setProjectPath()
-        atom.workspaceView.command "project-ring:delete-project-ring", => @deleteProjectRing()
-        atom.workspaceView.command "project-ring:copy-project-alias", => @copy 'alias'
-        atom.workspaceView.command "project-ring:copy-project-path", => @copy 'projectPath'
-        atom.workspaceView.command "project-ring:move-project-path", => @setProjectPath true
-        atom.workspaceView.command "project-ring:edit-key-bindings", => @editKeyBindings()
+        atom.commands.add 'atom-workspace', "project-ring:ban-files-from-current-project", => @banFilesFromProject()
+        atom.commands.add 'atom-workspace', "project-ring:always-open-current-file", => @alwaysOpenBufferPath()
+        atom.commands.add 'atom-workspace', "project-ring:always-open-files", => @alwaysOpenFiles()
+        atom.commands.add 'atom-workspace', "project-ring:delete", => @delete()
+        atom.commands.add 'atom-workspace', "project-ring:unlink", => @unlink()
+        atom.commands.add 'atom-workspace', "project-ring:set-project-path", => @setProjectPath()
+        atom.commands.add 'atom-workspace', "project-ring:delete-project-ring", => @deleteProjectRing()
+        atom.commands.add 'atom-workspace', "project-ring:copy-project-alias", => @copy 'alias'
+        atom.commands.add 'atom-workspace', "project-ring:copy-project-path", => @copy 'projectPath'
+        atom.commands.add 'atom-workspace', "project-ring:move-project-path", => @setProjectPath true
+        atom.commands.add 'atom-workspace', "project-ring:edit-key-bindings", => @editKeyBindings()
 
     setupProjectRingNotification: ->
         @projectRingNotification = new (require './project-ring-notification')
@@ -169,8 +169,8 @@ module.exports =
                     @addOpenBufferPathToProject openProjectBuffer.file.path
         setTimeout (
                 =>
-                    atom.workspaceView.find('.tab-bar').on 'drop', =>
-                        setTimeout (=> @add updateOpenBufferPathPositionsOnly: true), 0
+                    { $ } = require 'atom-space-pen-views'
+                    $('.tab-bar').on 'drop', => setTimeout (=> @add updateOpenBufferPathPositionsOnly: true), 0
             ),
             0
 
@@ -192,7 +192,7 @@ module.exports =
                     entries = atom.packages.getLoadedPackage('tree-view')?.mainModule.treeView?.\
                         find('.tree-view > .directory > .entries').find('.directory, .file') ? []
                     return unless entries.length
-                    {$} = require 'atom'
+                    { $ } = require 'atom-space-pen-views'
                     if useFilePatternHiding
                         filePattern = atom.config.get 'project-ring.filePatternToHide'
                         if filePattern and not /^\s*$/.test filePattern

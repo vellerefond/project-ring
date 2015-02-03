@@ -1,4 +1,4 @@
-{ $$, SelectListView } = require 'atom'
+{ $, $$, SelectListView } = require 'atom-space-pen-views'
 
 module.exports =
 class ProjectRingView extends SelectListView
@@ -26,7 +26,7 @@ class ProjectRingView extends SelectListView
                 'data': items[key]
             }
         @setItems itemsArray
-        atom.workspaceView.append @
+        atom.workspace.addModalPanel item: @
         @filterEditorView.setPlaceholderText @viewModeParameters.placeholderText
         @filterEditorView.focus()
 
