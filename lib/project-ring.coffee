@@ -1,12 +1,26 @@
+##############################
+# Private Helper Functions -- Start #
+##############################
+
+findInArray = (array, callback) ->
+    return undefined unless array and array.length and typeof callback is 'function'
+    for element in array
+        return element if callback element
+    undefined
+
+##############################
+# Private Helper Functions -- END #
+##############################
+
 module.exports =
     configDefaults:
         closePreviousProjectFiles: true
-        filePatternToHide: null
-        filePatternToExcludeFromHiding: null
+        filePatternToHide: ''
+        filePatternToExcludeFromHiding: ''
         keepAllOpenFilesRegardlessOfProject: false
         keepOutOfPathOpenFilesInCurrentProject: false
         makeTheCurrentProjectTheDefaultOnStartUp: true
-        projectToLoadOnStartUp: null
+        projectToLoadOnStartUp: ''
         doNotSaveAndRestoreOpenProjectFiles: false
         skipOpeningTreeViewWhenChangingProjectPath: false
         useFilePatternHiding: false
@@ -128,7 +142,7 @@ module.exports =
                         setTimeout (
                                 =>
                                     bufferDestroyedPathProxy = bufferDestroyed.file.path.toLowerCase()
-                                    if (@statesCache['<~>'].openBufferPaths.find (openBufferPath) ->
+                                    if (findInArray @statesCache['<~>'].openBufferPaths, (openBufferPath) ->
                                         openBufferPath.toLowerCase() is bufferDestroyedPathProxy)
                                             @statesCache['<~>'].openBufferPaths =
                                                 @statesCache['<~>'].openBufferPaths.filter (openBufferPath) ->
@@ -137,7 +151,7 @@ module.exports =
                                             return
                                     return unless @inProject
                                     atomProjectPathAsKeyProxy = @getAtomProjectPathAsKey()
-                                    if (@statesCache[atomProjectPathAsKeyProxy].openBufferPaths.find (openBufferPath) ->
+                                    if (findInArray @statesCache[atomProjectPathAsKeyProxy].openBufferPaths, (openBufferPath) ->
                                             openBufferPath.toLowerCase() is bufferDestroyedPathProxy)
                                         @statesCache[atomProjectPathAsKeyProxy].openBufferPaths =
                                             @statesCache[atomProjectPathAsKeyProxy].openBufferPaths
@@ -232,6 +246,8 @@ module.exports =
                             $(@).removeAttr('data-project-ring-filtered').css 'display', ''
             ),
             0
+
+
 
     getConfigurationPath: ->
         _path = require 'path'
@@ -412,13 +428,13 @@ module.exports =
         atomProjectPathAsKeyProxy = @getAtomProjectPathAsKey()
         return if \
             not manually and \
-            (@statesCache[atomProjectPathAsKeyProxy].bannedBufferPaths.find (bannedBufferPath) -> \
+            (findInArray @statesCache[atomProjectPathAsKeyProxy].bannedBufferPaths, (bannedBufferPath) -> \
                 bannedBufferPath.toLowerCase() is openBufferPathToAdd)
         if manually
             @statesCache['<~>'].openBufferPaths =
                 @statesCache['<~>'].openBufferPaths.filter (openBufferPath) ->
                     openBufferPath.toLowerCase() isnt openBufferPathToAdd
-        unless (@statesCache[atomProjectPathAsKeyProxy].openBufferPaths.find (openBufferPath) ->
+        unless (findInArray @statesCache[atomProjectPathAsKeyProxy].openBufferPaths, (openBufferPath) ->
             openBufferPath.toLowerCase() is openBufferPathToAdd)
                 atom.workspace.once 'editor-created.project-ring editor-created-forced.project-ring', =>
                     setTimeout (
@@ -427,9 +443,9 @@ module.exports =
                                 @statesCache[atomProjectPathAsKeyProxy].bannedBufferPaths.filter (bannedBufferPath) ->
                                     bannedBufferPath.toLowerCase() isnt openBufferPathToAdd
                             newOpenBufferPaths = @getOpenBufferPaths().filter (openBufferPathInAll) =>
-                                openBufferPathInAll.toLowerCase() is openBufferPathToAdd or \
-                                    @statesCache[atomProjectPathAsKeyProxy].openBufferPaths.find (openBufferPath) ->
-                                        openBufferPath.toLowerCase() is openBufferPathInAll.toLowerCase()
+                                openBufferPathInAll.toLowerCase() is openBufferPathToAdd or
+                                findInArray @statesCache[atomProjectPathAsKeyProxy].openBufferPaths, (openBufferPath) ->
+                                    openBufferPath.toLowerCase() is openBufferPathInAll.toLowerCase()
                             @statesCache[atomProjectPathAsKeyProxy].openBufferPaths = newOpenBufferPaths
                             @saveProjectRing()
                             if manually
@@ -450,7 +466,7 @@ module.exports =
         return unless openBufferPathToBan
         openBufferPathToBanProxy = openBufferPathToBan.toLowerCase()
         atomProjectPathAsKeyProxy = @getAtomProjectPathAsKey()
-        unless (@statesCache[atomProjectPathAsKeyProxy].bannedBufferPaths.find (openBufferPath) ->
+        unless (findInArray @statesCache[atomProjectPathAsKeyProxy].bannedBufferPaths, (openBufferPath) ->
             openBufferPath.toLowerCase() is openBufferPathToBanProxy)
                 @statesCache[atomProjectPathAsKeyProxy].openBufferPaths =
                     @statesCache[atomProjectPathAsKeyProxy].openBufferPaths.filter (openBufferPath) ->
@@ -468,8 +484,8 @@ module.exports =
         bufferPathToAlwaysOpen = atom.workspace.getActiveEditor()?.buffer.file?.path unless bufferPathToAlwaysOpen
         bufferPathToAlwaysOpenProxy = bufferPathToAlwaysOpen?.toLowerCase()
         return unless \
-            bufferPathToAlwaysOpen and \
-            not (@statesCache['<~>'].openBufferPaths.find (openBufferPath) -> \
+            bufferPathToAlwaysOpen and
+            not (findInArray @statesCache['<~>'].openBufferPaths, (openBufferPath) ->
                 openBufferPath.toLowerCase() is bufferPathToAlwaysOpenProxy)
         for stateKey in Object.keys @statesCache
             continue if @statesCache[stateKey].isIgnored
@@ -548,7 +564,7 @@ module.exports =
 
     addAs: (renameOnly) ->
         @loadProjectRingInputView()
-        unless @projectRingInputView.hasParent()
+        unless @projectRingInputView.isVisible()
             alias = atom.project.path
             atomProjectPathAsKeyProxy = @getAtomProjectPathAsKey()
             if @statesCache[atomProjectPathAsKeyProxy]
@@ -564,12 +580,13 @@ module.exports =
             }, 'Project alias', alias
 
     toggle: (openProjectBuffersOnly) ->
-        deleteKeyBinding = atom.keymap.getKeyBindings().find (keyBinding) -> keyBinding.command is 'project-ring:add'
+        deleteKeyBinding = findInArray atom.keymap.getKeyBindings(), (keyBinding) ->
+            keyBinding.command is 'project-ring:add'
         if deleteKeyBinding
         then deleteKeyBinding =
             ' (delete selected: ' + deleteKeyBinding.keystrokes.split(/\s+/)[0].replace(/-[^-]+$/, '-') + 'delete)'
         else deleteKeyBinding = ''
-        if @projectRingView and @projectRingView.hasParent()
+        if @projectRingView and @projectRingView.isVisible()
             @projectRingView.destroy()
         else
             @loadProjectRingView()
@@ -585,7 +602,7 @@ module.exports =
     addFilesToProject: ->
         return unless @checkIfInProject()
         @loadProjectRingBufferSelectView()
-        unless @projectRingBufferSelectView.hasParent()
+        unless @projectRingBufferSelectView.isVisible()
             bufferPathsToOfferForAddition = []
             atomProjectPathAsKeyProxy = @getAtomProjectPathAsKey()
             buffersOfCurrentProject =
@@ -597,7 +614,7 @@ module.exports =
                     (@statesCache[projectPath].openBufferPaths.filter (openBufferPath) ->
                         openBufferPathProxy = openBufferPath.toLowerCase()
                         openBufferPathProxy not in buffersOfCurrentProject and
-                        not (bufferPathsToOfferForAddition.find (bufferPathSpec) ->
+                        not (findInArray bufferPathsToOfferForAddition, (bufferPathSpec) ->
                             bufferPathSpec.path.toLowerCase() is openBufferPathProxy)).forEach (openBufferPath) =>
                                 description = openBufferPath
                                 if description.length > 40
@@ -610,7 +627,7 @@ module.exports =
                 bufferPathProxy = buffer.file?.path.toLowerCase()
                 buffer.file and
                 bufferPathProxy not in buffersOfCurrentProject and
-                not (bufferPathsToOfferForAddition.find (bufferPathSpec) ->
+                not (findInArray bufferPathsToOfferForAddition, (bufferPathSpec) ->
                     bufferPathSpec.path.toLowerCase() is bufferPathProxy)).forEach (buffer) ->
                         description = buffer.file.path
                         description = '...' + description.substr description.length - 37 if description.length > 40
@@ -629,11 +646,11 @@ module.exports =
     banFilesFromProject: ->
         return unless @checkIfInProject()
         @loadProjectRingBufferSelectView()
-        unless @projectRingBufferSelectView.hasParent()
+        unless @projectRingBufferSelectView.isVisible()
             bufferPathsToOfferForBanning = []
             (atom.project.buffers.filter (buffer) ->
                 buffer.file and
-                not (bufferPathsToOfferForBanning.find (bufferPathSpec) ->
+                not (findInArray bufferPathsToOfferForBanning, (bufferPathSpec) ->
                     bufferPathSpec.path.toLowerCase() is buffer.file.path.toLowerCase())).forEach (buffer) ->
                         description = buffer.file.path
                         description = '...' + description.substr description.length - 37 if description.length > 40
@@ -647,11 +664,11 @@ module.exports =
     alwaysOpenFiles: ->
         return unless @checkIfInProject()
         @loadProjectRingBufferSelectView()
-        unless @projectRingBufferSelectView.hasParent()
+        unless @projectRingBufferSelectView.isVisible()
             bufferPathsToOfferForAlwaysOpening = []
             (atom.project.buffers.filter (buffer) ->
                 buffer.file and
-                not (bufferPathsToOfferForAlwaysOpening.find (bufferPathSpec) ->
+                not (findInArray bufferPathsToOfferForAlwaysOpening, (bufferPathSpec) ->
                     bufferPathSpec.path.toLowerCase() is buffer.file.path.toLowerCase())).forEach (buffer) ->
                         description = buffer.file.path
                         description = '...' + description.substr description.length - 37 if description.length > 40

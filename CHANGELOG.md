@@ -1,3 +1,5 @@
+###### 0.19.0 - Upgraded the package code to make it compatible with version 1.0 of the Atom API.
+
 ###### 0.18.5 - Minor code logic fix
 
 ###### 0.18.4 - Using synchronous open for project files and fixes regarding the project loading logic

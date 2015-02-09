@@ -26,8 +26,8 @@ class ProjectRingView extends SelectListView
                 'data': items[key]
             }
         @setItems itemsArray
-        atom.workspace.addModalPanel item: @
-        @filterEditorView.setPlaceholderText @viewModeParameters.placeholderText
+        @self = atom.workspace.addModalPanel item: @
+        @filterEditorView.getModel().setPlaceholderText @viewModeParameters.placeholderText
         @filterEditorView.focus()
 
     getEmptyMessage: (itemCount, filteredItemCount) =>
@@ -52,4 +52,6 @@ class ProjectRingView extends SelectListView
 
     destroy: ->
         @cancel()
-        @detach()
+
+    cancelled: ->
+        @self.destroy()

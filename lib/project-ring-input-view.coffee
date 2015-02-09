@@ -1,11 +1,11 @@
-{ View, EditorView } = require 'atom-space-pen-views'
+{ View, TextEditorView } = require 'atom-space-pen-views'
 
 module.exports =
 class ProjectRingInputView extends View
     @content: ->
         @div class: 'project-ring-input overlay from-top', =>
             @div class: 'editor-container', outlet: 'editorContainer', =>
-                @subview 'editor', new EditorView mini: true
+                @subview 'editor', new TextEditorView mini: true
 
     initialize: (projectRing) ->
         @projectRing = @projectRing or projectRing
@@ -17,16 +17,16 @@ class ProjectRingInputView extends View
             @editor.on 'core:cancel', => @destroy()
             @isInitialized = true
         @editor.find('input').off 'blur'
-        @editor.setPlaceholderText placeholderText
+        @editor.getModel().setPlaceholderText placeholderText
         @editor.setText text or ''
-        @editor.editor.selectAll()
-        atom.workspaceView.append @
+        @editor.getModel().selectAll()
+        @self = atom.workspace.addModalPanel item: @
         @editor.focus()
         @editor.find('input').on 'blur', => @destroy()
 
     destroy: ->
         @editor.find('input').off 'blur'
-        @detach()
+        @self.destroy()
 
     confirmed: ->
         @destroy()

@@ -30,8 +30,8 @@ class ProjectRingBufferSelectView extends View
 
 	attach: (viewModeParameters, items) ->
 		@viewModeParameters = viewModeParameters
-		atom.workspaceView.append @
-		$content = atom.workspaceView.find '.project-ring-buffer-select'
+		@self = atom.workspace.addModalPanel item: @
+		$content = $(atom.views.getView atom.workspace).find '.project-ring-buffer-select'
 		unless @isInitialized
 			$controls = $content.find('.controls')
 			$controls.find('input:button.confirm').on 'click', => @confirmed()
@@ -48,18 +48,18 @@ class ProjectRingBufferSelectView extends View
 			$entries.append @getEntryView title: title, description: description, path: path
 
 	destroy: ->
-		@detach()
+		@self.destroy()
 
 	confirmed: ->
 		bufferPaths = []
-		atom.workspaceView.find('.project-ring-buffer-select .entries input:checkbox.checked')\
-			.each (index, element) -> \
+		$(atom.views.getView atom.workspace).find('.project-ring-buffer-select .entries input:checkbox.checked')\
+			.each (index, element) ->
 				bufferPaths.push $(element).attr 'data-path'
 		@destroy()
 		@projectRing.handleProjectRingBufferSelectViewSelection @viewModeParameters, bufferPaths
 
 	setAllEntriesSelected: (allSelected) ->
-		$checkboxes = atom.workspaceView.find '.project-ring-buffer-select .entries input:checkbox'
+		$checkboxes = $(atom.views.getView atom.workspace).find '.project-ring-buffer-select .entries input:checkbox'
 		if allSelected
 			$checkboxes.removeClass('checked').addClass 'checked'
 		else
