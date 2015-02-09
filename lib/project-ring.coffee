@@ -772,9 +772,10 @@ module.exports =
             @processProjectRingViewProjectDeletion selectedItem.data
 
     processProjectRingViewProjectDeletion: (projectState) ->
-        return unless projectState and @statesCache and @statesCache[projectState.projectPath]
-        @projectRingView.destroy() if @projectRingView
+        return unless projectState and @statesCache
         projectStateProjectPathAsKeyProxy = @getAtomProjectPathAsKey projectState.projectPath
+        return unless @statesCache[projectStateProjectPathAsKeyProxy]
+        @projectRingView.destroy() if @projectRingView
         if \
             atom.project.path and
             @statesCache[projectStateProjectPathAsKeyProxy] and

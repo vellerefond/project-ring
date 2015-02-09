@@ -1,4 +1,6 @@
-###### 0.19.0 - Upgraded the package code to make it compatible with version 1.0 of the Atom API.
+###### 0.19.1 - Fix for the project deletion code (using alt-shift-delete)
+
+###### 0.19.0 - Upgraded the package code to make it compatible with version 1.0 of the Atom API
 
 ###### 0.18.5 - Minor code logic fix
 
