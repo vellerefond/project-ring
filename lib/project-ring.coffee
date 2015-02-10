@@ -783,6 +783,7 @@ module.exports =
                 @inProject = false
         delete @statesCache[projectStateProjectPathAsKeyProxy]
         @saveProjectRing()
+        @projectRingNotification.notify 'Project "' + projectState.alias + '" has been deleted' if projectState.alias
 
     handleProjectRingViewSelection: (viewModeParameters, data) ->
         switch viewModeParameters.viewMode
