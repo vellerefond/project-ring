@@ -1,3 +1,7 @@
+###### 0.19.3 - Fixed project cache key usage bug for when keys were not everywhere used correctly
+* Fixed project cache key usage bug for when keys were not everywhere used correctly
+* Reformatted the code to reduce lines and increase readability
+
 ###### 0.19.2 - Added a notification for when using alt-shift-delete to delete a project from the project selection view
 
 ###### 0.19.1 - Fix for the project deletion code (using alt-shift-delete)
