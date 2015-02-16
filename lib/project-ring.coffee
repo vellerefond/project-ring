@@ -1,11 +1,11 @@
 ##############################
-# Private Variables -- Start #
+# Private Variables -- Start            #
 ##############################
 
 defaultProjectCacheKey = '<~>'
 
 ##############################
-# Private Variables -- END #
+# Private Variables -- END            #
 ##############################
 
 ##############################
@@ -141,7 +141,7 @@ module.exports =
                         setTimeout (
                                 =>
                                     bufferDestroyedPathProxy = bufferDestroyed.file.path.toLowerCase()
-                                    if (findInArray @statesCache[defaultProjectCacheKey].openBufferPaths, (openBufferPath) ->
+                                    if (@statesCache[defaultProjectCacheKey].openBufferPaths.some (openBufferPath) ->
                                         openBufferPath.toLowerCase() is bufferDestroyedPathProxy)
                                             @statesCache[defaultProjectCacheKey].openBufferPaths =
                                                 @statesCache[defaultProjectCacheKey].openBufferPaths.filter (openBufferPath) ->
@@ -150,7 +150,7 @@ module.exports =
                                             return
                                     return unless @inProject
                                     atomProjectPathAsKeyProxy = @getAtomProjectPathAsKey()
-                                    if (findInArray @statesCache[atomProjectPathAsKeyProxy].openBufferPaths, (openBufferPath) ->
+                                    if (@statesCache[atomProjectPathAsKeyProxy].openBufferPaths.some (openBufferPath) ->
                                             openBufferPath.toLowerCase() is bufferDestroyedPathProxy)
                                         @statesCache[atomProjectPathAsKeyProxy].openBufferPaths =
                                             @statesCache[atomProjectPathAsKeyProxy].openBufferPaths.filter (openBufferPath) =>
@@ -413,12 +413,12 @@ module.exports =
         atomProjectPathAsKeyProxy = @getAtomProjectPathAsKey()
         return if \
             not manually and
-            (findInArray @statesCache[atomProjectPathAsKeyProxy].bannedBufferPaths, (bannedBufferPath) ->
+            (@statesCache[atomProjectPathAsKeyProxy].bannedBufferPaths.some (bannedBufferPath) ->
                 bannedBufferPath.toLowerCase() is openBufferPathToAdd)
         if manually
             @statesCache[defaultProjectCacheKey].openBufferPaths =
                 @statesCache[defaultProjectCacheKey].openBufferPaths.filter (openBufferPath) -> openBufferPath.toLowerCase() isnt openBufferPathToAdd
-        unless (findInArray @statesCache[atomProjectPathAsKeyProxy].openBufferPaths, (openBufferPath) -> openBufferPath.toLowerCase() is openBufferPathToAdd)
+        unless (@statesCache[atomProjectPathAsKeyProxy].openBufferPaths.some (openBufferPath) -> openBufferPath.toLowerCase() is openBufferPathToAdd)
             atom.workspace.once 'editor-created.project-ring editor-created-forced.project-ring', =>
                 setTimeout (
                     =>
@@ -427,7 +427,7 @@ module.exports =
                                 bannedBufferPath.toLowerCase() isnt openBufferPathToAdd
                         newOpenBufferPaths = @getOpenBufferPaths().filter (openBufferPathInAll) =>
                             openBufferPathInAll.toLowerCase() is openBufferPathToAdd or
-                            findInArray @statesCache[atomProjectPathAsKeyProxy].openBufferPaths, (openBufferPath) ->
+                            @statesCache[atomProjectPathAsKeyProxy].openBufferPaths.some (openBufferPath) ->
                                 openBufferPath.toLowerCase() is openBufferPathInAll.toLowerCase()
                         @statesCache[atomProjectPathAsKeyProxy].openBufferPaths = newOpenBufferPaths
                         @saveProjectRing()
@@ -448,7 +448,7 @@ module.exports =
         return unless openBufferPathToBan
         openBufferPathToBanProxy = openBufferPathToBan.toLowerCase()
         atomProjectPathAsKeyProxy = @getAtomProjectPathAsKey()
-        unless (findInArray @statesCache[atomProjectPathAsKeyProxy].bannedBufferPaths, (openBufferPath) ->
+        unless (@statesCache[atomProjectPathAsKeyProxy].bannedBufferPaths.some (openBufferPath) ->
             openBufferPath.toLowerCase() is openBufferPathToBanProxy)
                 @statesCache[atomProjectPathAsKeyProxy].openBufferPaths =
                     @statesCache[atomProjectPathAsKeyProxy].openBufferPaths.filter (openBufferPath) ->
@@ -467,7 +467,7 @@ module.exports =
         bufferPathToAlwaysOpenProxy = bufferPathToAlwaysOpen?.toLowerCase()
         return unless \
             bufferPathToAlwaysOpen and
-            not (findInArray @statesCache[defaultProjectCacheKey].openBufferPaths, (openBufferPath) ->
+            not (@statesCache[defaultProjectCacheKey].openBufferPaths.some (openBufferPath) ->
                 openBufferPath.toLowerCase() is bufferPathToAlwaysOpenProxy)
         for stateKey in Object.keys @statesCache
             continue if @statesCache[stateKey].isIgnored
@@ -582,7 +582,7 @@ module.exports =
                     (@statesCache[projectPath].openBufferPaths.filter (openBufferPath) ->
                         openBufferPathProxy = openBufferPath.toLowerCase()
                         openBufferPathProxy not in buffersOfCurrentProject and
-                        not (findInArray bufferPathsToOfferForAddition, (bufferPathSpec) ->
+                        not (bufferPathsToOfferForAddition.some (bufferPathSpec) ->
                             bufferPathSpec.path.toLowerCase() is openBufferPathProxy)).forEach (openBufferPath) =>
                                 description = openBufferPath
                                 if description.length > 40
@@ -592,7 +592,7 @@ module.exports =
                 bufferPathProxy = buffer.file?.path.toLowerCase()
                 buffer.file and
                 bufferPathProxy not in buffersOfCurrentProject and
-                not (findInArray bufferPathsToOfferForAddition, (bufferPathSpec) ->
+                not (bufferPathsToOfferForAddition.some (bufferPathSpec) ->
                     bufferPathSpec.path.toLowerCase() is bufferPathProxy)).forEach (buffer) ->
                         description = buffer.file.path
                         description = '...' + description.substr description.length - 37 if description.length > 40
@@ -612,7 +612,7 @@ module.exports =
             bufferPathsToOfferForBanning = []
             (atom.project.buffers.filter (buffer) ->
                 buffer.file and
-                not (findInArray bufferPathsToOfferForBanning, (bufferPathSpec) ->
+                not (bufferPathsToOfferForBanning.some (bufferPathSpec) ->
                     bufferPathSpec.path.toLowerCase() is buffer.file.path.toLowerCase())).forEach (buffer) ->
                         description = buffer.file.path
                         description = '...' + description.substr description.length - 37 if description.length > 40
@@ -627,7 +627,7 @@ module.exports =
             bufferPathsToOfferForAlwaysOpening = []
             (atom.project.buffers.filter (buffer) ->
                 buffer.file and
-                not (findInArray bufferPathsToOfferForAlwaysOpening, (bufferPathSpec) ->
+                not (bufferPathsToOfferForAlwaysOpening.some (bufferPathSpec) ->
                     bufferPathSpec.path.toLowerCase() is buffer.file.path.toLowerCase())).forEach (buffer) ->
                         description = buffer.file.path
                         description = '...' + description.substr description.length - 37 if description.length > 40

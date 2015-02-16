@@ -1,3 +1,5 @@
+###### 0.19.4 - Minor code reformat
+
 ###### 0.19.3 - Fixed project cache key usage bug for when keys were not everywhere used correctly
 * Fixed project cache key usage bug for when keys were not everywhere used correctly
 * Reformatted the code to reduce lines and increase readability
