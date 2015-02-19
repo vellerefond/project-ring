@@ -12,6 +12,10 @@ defaultProjectCacheKey = '<~>'
 # Private Helper Functions -- Start #
 ##############################
 
+getProjectRootPath = () ->
+    return null unless atom.project.rootDirectories instanceof Array and atom.project.rootDirectories[0]
+    atom.project.rootDirectories[0].path or null
+
 findInArray = (array, callback) ->
     return undefined unless array and array.length and typeof callback is 'function'
     for element in array
@@ -58,7 +62,7 @@ module.exports =
             atomProjectPathAsKeyProxy = @getAtomProjectPathAsKey()
             return unless @inProject and makeTheCurrentProjectTheDefaultOnStartUp and @statesCache[atomProjectPathAsKeyProxy]
             atom.config.set 'project-ring.projectToLoadOnStartUp', @statesCache[atomProjectPathAsKeyProxy].alias
-        projectToLoadOnStartUp = (atom.project.path or null) ? atom.config.get 'project-ring.projectToLoadOnStartUp'
+        projectToLoadOnStartUp = getProjectRootPath() ? atom.config.get 'project-ring.projectToLoadOnStartUp'
         atom.project.once 'project-ring-states-cache-initialized', =>
             _fs = require 'fs'
             validDefaultBufferPathsToOpen = @statesCache[defaultProjectCacheKey].openBufferPaths.filter (openBufferPath) -> _fs.existsSync openBufferPath
@@ -169,9 +173,9 @@ module.exports =
                         @alwaysOpenBufferPath openProjectBuffer.file.path
                         return
                     return unless \
-                        atom.project.path and
+                        getProjectRootPath() and
                         (new RegExp(
-                            '^' + @turnToPathRegExp(atom.project.path), 'i'
+                            '^' + @turnToPathRegExp(getProjectRootPath()), 'i'
                         ).test(openProjectBuffer.file.path) or
                         atom.config.get 'project-ring.keepOutOfPathOpenFilesInCurrentProject')
                     @addOpenBufferPathToProject openProjectBuffer.file.path
@@ -184,7 +188,7 @@ module.exports =
 
     setupAutomaticProjectLoadingOnProjectPathChange: ->
         atom.project.on 'path-changed', =>
-            return unless atom.project.path and not @currentlySettingProjectPath
+            return unless getProjectRootPath() and not @currentlySettingProjectPath
             @unlink true, true
             @processProjectRingViewProjectSelection projectState: @statesCache[@getAtomProjectPathAsKey()], isAsynchronousProjectPathChange: true
 
@@ -266,7 +270,7 @@ module.exports =
         csonFilePath
 
     getAtomProjectPathAsKey: (path) ->
-        (path or atom.project.path)?.toLowerCase()
+        (path or getProjectRootPath())?.toLowerCase()
 
     watchProjectRingConfiguration: (watch) ->
         return unless @projectRingId
@@ -278,7 +282,7 @@ module.exports =
                 _fs.watchFile \
                     pathFilePath,
                     { persistent: true, interval: @projectRingInvariantState.configurationFileWatchInterval },
-                    (currentStat, previousStat) => @setProjectRing @projectRingId # , atom.project.path
+                    (currentStat, previousStat) => @setProjectRing @projectRingId # , getProjectRootPath()
             if csonFilePath
                 _fs.watchFile \
                     csonFilePath,
@@ -287,7 +291,7 @@ module.exports =
                         if @currentlySavingConfiguration.csonFile
                             @currentlySavingConfiguration.csonFile = false
                             return
-                        @setProjectRing @projectRingId # , atom.project.path
+                        @setProjectRing @projectRingId # , getProjectRootPath()
         else
             _fs.unwatchFile pathFilePath if pathFilePath
             _fs.unwatchFile csonFilePath if csonFilePath
@@ -483,7 +487,7 @@ module.exports =
     add: (options) ->
         options = options or {}
         @projectRingView.destroy() if @projectRingView
-        return unless atom.project.path and not /^\s*$/.test atom.project.path
+        return unless getProjectRootPath() and not /^\s*$/.test getProjectRootPath()
         treeViewState = atom.packages.getLoadedPackage('tree-view')?.serialize()
         atomProjectPathAsKeyProxy = @getAtomProjectPathAsKey()
         if options.updateTreeViewStateOnly
@@ -498,7 +502,7 @@ module.exports =
                 openBufferPath.toLowerCase() in currentProjectOpenBufferPaths
             @saveProjectRing()
             return
-        alias = options.alias or @statesCache[atomProjectPathAsKeyProxy]?.alias or require('path').basename atom.project.path
+        alias = options.alias or @statesCache[atomProjectPathAsKeyProxy]?.alias or require('path').basename getProjectRootPath()
         alias = '...' + alias.substr alias.length - 97 if alias.length > 100
         unless @statesCache[atomProjectPathAsKeyProxy]
             aliases = (Object.keys(@statesCache).filter (projectPath) =>
@@ -527,7 +531,7 @@ module.exports =
         bufferPathsToAlwaysOpen = @statesCache[defaultProjectCacheKey].openBufferPaths.map (openBufferPath) -> openBufferPath.toLowerCase()
         currentProjectState =
             alias: alias
-            projectPath: atom.project.path
+            projectPath: getProjectRootPath()
             treeViewState: treeViewState
             openBufferPaths: @getOpenBufferPaths().filter (openBufferPath) -> openBufferPath.toLowerCase() not in bufferPathsToAlwaysOpen
             bannedBufferPaths: []
@@ -539,7 +543,7 @@ module.exports =
     addAs: (renameOnly) ->
         @loadProjectRingInputView()
         unless @projectRingInputView.isVisible()
-            alias = atom.project.path
+            alias = getProjectRootPath()
             atomProjectPathAsKeyProxy = @getAtomProjectPathAsKey()
             if @statesCache[atomProjectPathAsKeyProxy]
             then (
@@ -640,7 +644,7 @@ module.exports =
 
     delete: ->
         @projectRingView.destroy() if @projectRingView
-        return unless atom.project.path and not /^\s*$/.test atom.project.path
+        return unless getProjectRootPath() and not /^\s*$/.test getProjectRootPath()
         @statesCache = {} unless @statesCache
         @inProject = false if @inProject
         atomProjectPathAsKeyProxy = @getAtomProjectPathAsKey()
@@ -651,10 +655,10 @@ module.exports =
 
     unlink: (doNotShowNotification, doNotAffectAtom) ->
         @projectRingView.destroy() if @projectRingView
-        return unless atom.project.path and not /^\s*$/.test atom.project.path
+        return unless getProjectRootPath() and not /^\s*$/.test getProjectRootPath()
         unless doNotAffectAtom
             (atom.packages.getLoadedPackage 'tree-view')?.mainModule.treeView?.detach?()
-            atom.project.setPath null
+            atom.project.setPaths []
         @inProject = false
         @projectRingNotification.notify 'No project is currently loaded' unless doNotShowNotification
 
@@ -673,12 +677,12 @@ module.exports =
                     @currentlySettingProjectPath = true
                     atom.project.once 'path-changed', =>
                         @currentlySettingProjectPath = false
-                        return unless atom.project.path and not /^\s*$/.test atom.project.path
+                        return unless getProjectRootPath() and not /^\s*$/.test getProjectRootPath()
                         unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
                             @runFilePatternHiding()
                             (atom.packages.getLoadedPackage 'tree-view')?.mainModule.treeView?.show?()
-                        @projectRingNotification.notify 'The project path has been set to "' + atom.project.path + '"'
-                    atom.project.setPath pathsToOpen[0]
+                        @projectRingNotification.notify 'The project path has been set to "' + getProjectRootPath() + '"'
+                    atom.project.setPaths [ pathsToOpen[0] ]
                     @processProjectRingViewProjectSelection
                         projectState: @statesCache[@getAtomProjectPathAsKey pathsToOpen[0]]
                         isAsynchronousProjectPathChange: true
@@ -689,7 +693,7 @@ module.exports =
                     @statesCache[newAtomProjectPathAsKeyProxy] = @statesCache[atomProjectPathAsKeyProxy]
                     @statesCache[newAtomProjectPathAsKeyProxy].projectPath = pathsToOpen[0]
                     if @statesCache[newAtomProjectPathAsKeyProxy].treeViewState
-                        oldPathRE = new RegExp '^' + (@turnToPathRegExp atom.project.path), 'i'
+                        oldPathRE = new RegExp '^' + (@turnToPathRegExp getProjectRootPath()), 'i'
                         if @statesCache[newAtomProjectPathAsKeyProxy].treeViewState.selectedPath and
                         not /^\s*$/.test @statesCache[newAtomProjectPathAsKeyProxy].treeViewState.selectedPath
                             @statesCache[newAtomProjectPathAsKeyProxy].treeViewState.selectedPath =
@@ -699,7 +703,7 @@ module.exports =
                                 openBufferPath.replace oldPathRE, pathsToOpen[0]
                             @statesCache[newAtomProjectPathAsKeyProxy].openBufferPaths = newOpenBufferPaths
                     delete @statesCache[atomProjectPathAsKeyProxy]
-                atom.project.setPath pathsToOpen[0]
+                atom.project.setPaths [ pathsToOpen[0] ]
                 if not @statesCache[newAtomProjectPathAsKeyProxy]
                     @add()
                 else
@@ -733,7 +737,7 @@ module.exports =
         return unless @statesCache[projectStateProjectPathAsKeyProxy]
         @projectRingView.destroy() if @projectRingView
         if \
-            atom.project.path and
+            getProjectRootPath() and
             @statesCache[projectStateProjectPathAsKeyProxy] and
             projectStateProjectPathAsKeyProxy is @getAtomProjectPathAsKey()
                 @inProject = false
@@ -791,13 +795,18 @@ module.exports =
                     treeView = atom.packages.getLoadedPackage 'tree-view'
                     atom.project.once 'path-changed', =>
                         @currentlySettingProjectPath = false
-                        return unless atom.project.path and not /^\s*$/.test atom.project.path
-                        treeView?.mainModule.treeView?.updateRoot? options.projectState.treeViewState.directoryExpansionStates
-                        @runFilePatternHiding()
-                        treeView?.mainModule.treeView?.show?() unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
+                        return unless getProjectRootPath() and not /^\s*$/.test getProjectRootPath()
+                        unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
+                            treeView?.mainModule.treeView?.show?()
+                            setTimeout (
+                                =>
+                                    treeView?.mainModule.treeView?.updateRoot? options.projectState.treeViewState.directoryExpansionStates
+                                    @runFilePatternHiding()
+                            ),
+                            0
                         @inProject = true
                         @projectRingNotification.notify 'Project "' + options.projectState.alias + '" has been loaded'
-                    atom.project.setPath options.projectState.projectPath
+                    atom.project.setPaths [ options.projectState.projectPath ]
                     atomProjectPathAsKeyProxy = projectStateProjectPathAsKeyProxy
             else
                 @inProject = true
@@ -872,7 +881,7 @@ module.exports =
         atomProjectPathAsKeyProxy = @getAtomProjectPathAsKey()
         return unless \
             @checkIfInProject() and
-            not /^\s*$/.test(atom.project.path) and
+            not /^\s*$/.test(getProjectRootPath()) and
             @statesCache[atomProjectPathAsKeyProxy]?[copyKey]
         try
             require('clipboard').writeText @statesCache[atomProjectPathAsKeyProxy][copyKey]
