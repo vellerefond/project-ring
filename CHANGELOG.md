@@ -1,3 +1,5 @@
+###### 0.19.6 - Code fixes to account for the new multi-root tree view behavior
+
 ###### 0.19.5 - Code fixes to conform with the new Atom API and correct the logic when restoring the Tree View state of a project
 
 ###### 0.19.4 - Minor code reformat
