@@ -13,9 +13,8 @@
 # reopen Atom for the changes to take effect.
 
 'atom-workspace ':
-    'alt-shift-\\': 'project-ring:add'
-    'alt-shift-=': 'project-ring:add-as'
-    'alt-shift-/': 'project-ring:rename'
-    'alt-\\': 'project-ring:toggle'
-    'alt-shift-.': 'project-ring:open-project-files'
-    'ctrl-shift-/': 'project-ring:delete'
+	'alt-shift-\\': 'project-ring:add-project'
+	'alt-shift-/': 'project-ring:rename-current-project'
+	'alt-\\': 'project-ring:toggle'
+	'alt-shift-.': 'project-ring:open-project-files'
+	'ctrl-shift-/': 'project-ring:delete-current-project'

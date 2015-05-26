@@ -13,7 +13,18 @@ class ProjectRingNotification
 		@notification = $('<div></div>').on 'click', => @close()
 
 	getActiveNotification: ->
-		$(document.body).find '.project-ring-notification'
+		fontFamily = atom.config.get 'editor.fontFamily'
+		fontSize = atom.config.get 'editor.fontSize'
+		activeNotification = $(document.body).find '.project-ring-notification'
+		if fontFamily
+			activeNotification.css 'font-family', fontFamily
+		else
+			activeNotification.css 'font-family', null
+		if fontSize
+			activeNotification.css 'font-size', fontSize
+		else
+			activeNotification.css 'font-size', null
+		activeNotification
 
 	setCSS: (severity) ->
 		return unless @notification and severity

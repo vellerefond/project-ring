@@ -1,924 +1,737 @@
-##############################
-# Private Variables -- Start            #
-##############################
-
-defaultProjectCacheKey = '<~>'
-
-##############################
-# Private Variables -- END            #
-##############################
-
-##############################
-# Private Helper Functions -- Start #
-##############################
-
-findInArray = (array, callback) ->
-    return undefined unless array and array.length and typeof callback is 'function'
-    for element in array
-        return element if callback element
-    undefined
-
-formatProjectRingId = (id) ->
-    id?.trim()
-
-getProjectRootPath = () ->
-    return null unless atom.project.rootDirectories instanceof Array and atom.project.rootDirectories[0]
-    atom.project.rootDirectories[0].path or null
-
-getProjectPathAsKey = (path) ->
-    (path or getProjectRootPath())?.toLowerCase()
-
-##############################
-# Private Helper Functions -- END #
-##############################
+lib = require './project-ring-lib'
 
 module.exports =
-    configDefaults:
-        closePreviousProjectFiles: true
-        filePatternToHide: ''
-        filePatternToExcludeFromHiding: ''
-        keepAllOpenFilesRegardlessOfProject: false
-        keepOutOfPathOpenFilesInCurrentProject: false
-        makeTheCurrentProjectTheDefaultOnStartUp: true
-        projectToLoadOnStartUp: ''
-        doNotSaveAndRestoreOpenProjectFiles: false
-        skipOpeningTreeViewWhenChangingProjectPath: false
-        useFilePatternHiding: false
-        useNotifications: true
+	config:
+		closePreviousProjectFiles: { type: 'boolean', default: true, description: 'Close the files of other projects when switching to a project' }
+		filePatternToHide: { type: 'string', default: '', description: 'The pattern of file names to hide in the Tree View' }
+		filePatternToExcludeFromHiding: { type: 'string', default: '', description: 'The pattern of file names to exclude from hiding' }
+		keepAllOpenFilesRegardlessOfProject: { type: 'boolean', default: false, description: 'Keep any file that is opened regardless of the current project' }
+		keepOutOfPathOpenFilesInCurrentProject: { type: 'boolean', default: false, description: 'Keep any file that is opened in the current project' }
+		makeTheCurrentProjectTheDefaultAtStartUp: {
+			type: 'boolean', default: false, description: 'Always make the currently chosen project the default at startup'
+		}
+		###
+		projectToLoadAtStartUp: { type: 'string', default: '', enum: [ '' ], description: 'The project name to load at startup' }
+		###
+		doNotSaveAndRestoreOpenProjectFiles: {
+			type: 'boolean', default: false, description: 'Do not automatically handle the save/restoration of open files for projects'
+		}
+		useFilePatternHiding: { type: 'boolean', default: false, description: 'Use file name pattern hiding' }
+		useNotifications: { type: 'boolean', default: true, description: 'Use notifications for important events' }
 
-    activate: (state) ->
-        setTimeout (=> @initialize state), 0
+	activate: (state) ->
+		setTimeout (=> @initialize state), 0
 
-    initialize: (state) ->
-        if @projectRingInvariantState and @projectRingInvariantState.isInitialized
-            return
-        @projectRingInvariantState =
-            emptyBufferDestroyDelayOnStartup: 750
-            regExpEscapesRegExp: /[\$\^\*\(\)\[\]\{\}\|\\\.\?\+]/g
-            deletionDelay: 250
-            configurationFileWatchInterval: 2500
-            isInitialized: true
-        Object.freeze @projectRingInvariantState
-        @currentlySavingConfiguration =
-            csonFile: false
-        @setupProjectRingNotification()
-        @setupAutomaticProjectBuffersSaving()
-        @setupAutomaticProjectLoadingOnProjectPathChange()
-        atom.config.observe 'project-ring.makeTheCurrentProjectTheDefaultOnStartUp', (makeTheCurrentProjectTheDefaultOnStartUp) =>
-            currentProjectState = @getProjectState()
-            return unless @inProject and makeTheCurrentProjectTheDefaultOnStartUp and currentProjectState
-            atom.config.set 'project-ring.projectToLoadOnStartUp', currentProjectState.alias
-        projectToLoadOnStartUp = getProjectRootPath() ? atom.config.get 'project-ring.projectToLoadOnStartUp'
-        atom.project.once 'project-ring-states-cache-initialized', =>
-            _fs = require 'fs'
-            defaultProjectState = @getProjectState defaultProjectCacheKey
-            validDefaultBufferPathsToOpen = defaultProjectState.openBufferPaths.filter (openBufferPath) -> _fs.existsSync openBufferPath
-            if validDefaultBufferPathsToOpen.length
-                currentlyOpenBufferPaths = @getOpenBufferPaths().map (openBufferPath) -> openBufferPath.toLowerCase()
-                bufferPathsToOpen = validDefaultBufferPathsToOpen.filter (validDefaultBufferPathToOpen) ->
-                    validDefaultBufferPathToOpen not in currentlyOpenBufferPaths
-                atom.workspace.openSync bufferPath for bufferPath in bufferPathsToOpen
-                unless defaultProjectState.openBufferPaths.length is validDefaultBufferPathsToOpen.length
-                    defaultProjectState.openBufferPaths = validDefaultBufferPathsToOpen
-                    @saveProjectRing()
-        treeView = atom.packages.getLoadedPackage 'tree-view'
-        if treeView
-            unless treeView?.mainModule.treeView?.updateRoots
-                treeView.activate().then =>
-                    setTimeout (
-                            =>
-                                treeView.mainModule.createView()
-                                treeView.mainModule.treeView.find('.tree-view').on 'click keydown', (event) =>
-                                    setTimeout (
-                                            =>
-                                                @add updateTreeViewStateOnly: true
-                                                @runFilePatternHiding()
-                                        ),
-                                        0
-                                @setProjectRing 'default', projectToLoadOnStartUp
-                        ),
-                        0
-            else
-                treeView.mainModule.treeView.find('.tree-view').on 'click keydown', (event) =>
-                    setTimeout (
-                            =>
-                                @add updateTreeViewStateOnly: true
-                                @runFilePatternHiding()
-                        ),
-                        0
-                @setProjectRing 'default', projectToLoadOnStartUp
-            atom.config.observe 'project-ring.useFilePatternHiding', (useFilePatternHiding) => @runFilePatternHiding useFilePatternHiding
-            atom.config.observe 'project-ring.filePatternToHide', (filePatternToHide) => @runFilePatternHiding()
-            atom.config.observe 'project-ring.filePatternToExcludeFromHiding', (filePatternToExcludeFromHiding) => @runFilePatternHiding()
-        else
-            @setProjectRing 'default', projectToLoadOnStartUp
-        atom.commands.add 'atom-workspace', 'tree-view:toggle', => @runFilePatternHiding()
-        atom.commands.add 'atom-workspace', "project-ring:add", => @add()
-        atom.commands.add 'atom-workspace', "project-ring:add-as", => @addAs()
-        atom.commands.add 'atom-workspace', "project-ring:rename", => @addAs true
-        atom.commands.add 'atom-workspace', "project-ring:toggle", => @toggle()
-        atom.commands.add 'atom-workspace', "project-ring:open-project-files", => @toggle true
-        atom.commands.add 'atom-workspace', "project-ring:add-current-file-to-current-project", => @addOpenBufferPathToProject null, true
-        atom.commands.add 'atom-workspace', "project-ring:add-files-to-current-project", => @addFilesToProject()
-        atom.commands.add 'atom-workspace', "project-ring:ban-current-file-from-current-project", => @banOpenBufferPathFromProject()
-        atom.commands.add 'atom-workspace', "project-ring:ban-files-from-current-project", => @banFilesFromProject()
-        atom.commands.add 'atom-workspace', "project-ring:always-open-current-file", => @alwaysOpenBufferPath()
-        atom.commands.add 'atom-workspace', "project-ring:always-open-files", => @alwaysOpenFiles()
-        atom.commands.add 'atom-workspace', "project-ring:delete", => @delete()
-        atom.commands.add 'atom-workspace', "project-ring:unlink", => @unlink()
-        atom.commands.add 'atom-workspace', "project-ring:set-project-path", => @setProjectPath()
-        atom.commands.add 'atom-workspace', "project-ring:delete-project-ring", => @deleteProjectRing()
-        atom.commands.add 'atom-workspace', "project-ring:copy-project-alias", => @copy 'alias'
-        atom.commands.add 'atom-workspace', "project-ring:copy-project-path", => @copy 'projectPath'
-        atom.commands.add 'atom-workspace', "project-ring:move-project-path", => @setProjectPath true
-        atom.commands.add 'atom-workspace', "project-ring:edit-key-bindings", => @editKeyBindings()
+	initialize: (state) ->
+		if @projectRingInvariantState and @projectRingInvariantState.isInitialized
+			return
+		@projectRingInvariantState = Object.freeze
+			emptyBufferDestroyDelayOnStartup: 750
+			deletionDelay: 250,
+			changedPathsUpdateDelay: 500,
+			configurationFileWatchInterval: 2500
+			isInitialized: true
+		@currentlySavingConfiguration =
+			csonFile: false
+		lib.setupEventHandling()
+		@setupProjectRingNotification()
+		@setupAutomaticProjectFileSaving()
+		@setupAutomaticRootDirectoryAndTreeViewStateSaving()
+		atom.config.observe 'project-ring.makeTheCurrentProjectTheDefaultAtStartUp', (makeTheCurrentProjectTheDefaultAtStartUp) =>
+			return unless makeTheCurrentProjectTheDefaultAtStartUp and @currentProjectState
+			lib.setDefaultProjectToLoadAtStartUp @currentProjectState.key
+		projectKeyToLoadAtStartUp = lib.getDefaultProjectToLoadAtStartUp lib.getProjectRingId()
+		lib.onceStatesCacheInitialized =>
+			_fs = require 'fs'
+			defaultProjectState = @getProjectState lib.defaultProjectCacheKey
+			defaultProjectState.files.open = defaultProjectState.files.open.filter (filePath) -> _fs.existsSync filePath
+			@saveProjectRing()
+			if defaultProjectState.files.open.length
+				currentlyOpenFilePaths = @getOpenFilePaths().map (openFilePath) -> openFilePath.toLowerCase()
+				filePathsToOpen = defaultProjectState.files.open.filter (filePathToOpen) -> filePathToOpen.toLowerCase() not in currentlyOpenFilePaths
+				lib.openFile filePath for filePath in filePathsToOpen
+			setTimeout (=>
+				atom.config.observe lib.defaultProjectConfigurationKeyPath, (projectToLoadAtStartUp) =>
+					lib.setDefaultProjectToLoadAtStartUp  projectToLoadAtStartUp, true
+				return if projectKeyToLoadAtStartUp and @getProjectState projectKeyToLoadAtStartUp
+				@projectRingNotification.warn 'No project has been loaded'
+			), 0
+		treeView = atom.packages.getLoadedPackage 'tree-view'
+		if treeView
+			unless treeView?.mainModule.treeView?.updateRoots
+				treeView.activate().then =>
+					setTimeout (=>
+						treeView.mainModule.createView()
+						treeView.mainModule.treeView.find('.tree-view').on 'click keydown', (event) =>
+							setTimeout (=>
+								@add updateRootDirectoriesAndTreeViewStateOnly: true
+								@runFilePatternHiding()
+							), 0
+						@setProjectRing 'default', projectKeyToLoadAtStartUp
+					), 0
+			else
+				treeView.mainModule.treeView.find('.tree-view').on 'click keydown', (event) =>
+					setTimeout (=>
+						@add updateRootDirectoriesAndTreeViewStateOnly: true
+						@runFilePatternHiding()
+					), 0
+				@setProjectRing 'default', projectKeyToLoadAtStartUp
+			atom.config.observe 'project-ring.useFilePatternHiding', (useFilePatternHiding) => @runFilePatternHiding useFilePatternHiding
+			atom.config.observe 'project-ring.filePatternToHide', (filePatternToHide) => @runFilePatternHiding()
+			atom.config.observe 'project-ring.filePatternToExcludeFromHiding', (filePatternToExcludeFromHiding) => @runFilePatternHiding()
+		else
+			@setProjectRing 'default', projectKeyToLoadAtStartUp
+		atom.commands.add 'atom-workspace', 'tree-view:toggle', => @runFilePatternHiding()
+		atom.commands.add 'atom-workspace', "project-ring:add-project", => @addAs()
+		atom.commands.add 'atom-workspace', "project-ring:rename-current-project", => @addAs true
+		atom.commands.add 'atom-workspace', "project-ring:toggle", => @toggle()
+		atom.commands.add 'atom-workspace', "project-ring:open-project-files", => @toggle true
+		atom.commands.add 'atom-workspace', "project-ring:add-current-file-to-current-project", => @addOpenFilePathToProject null, true
+		atom.commands.add 'atom-workspace', "project-ring:add-files-to-current-project", => @addFilesToProject()
+		atom.commands.add 'atom-workspace', "project-ring:ban-current-file-from-current-project", => @banOpenFilePathFromProject()
+		atom.commands.add 'atom-workspace', "project-ring:ban-files-from-current-project", => @banFilesFromProject()
+		atom.commands.add 'atom-workspace', "project-ring:always-open-current-file", => @alwaysOpenFilePath()
+		atom.commands.add 'atom-workspace', "project-ring:always-open-files", => @alwaysOpenFiles()
+		atom.commands.add 'atom-workspace', "project-ring:delete-current-project", => @deleteCurrentProject()
+		atom.commands.add 'atom-workspace', "project-ring:unload-current-project", => @unloadCurrentProject()
+		atom.commands.add 'atom-workspace', "project-ring:delete-project-ring", => @deleteProjectRing()
+		atom.commands.add 'atom-workspace', "project-ring:edit-key-bindings", => @editKeyBindings()
 
-    setupProjectRingNotification: ->
-        @projectRingNotification = new (require './project-ring-notification')
-        atom.config.observe 'project-ring.useNotifications', (useNotifications) => @projectRingNotification.isEnabled = useNotifications
+	setupProjectRingNotification: ->
+		@projectRingNotification = new (require './project-ring-notification')
+		atom.config.observe 'project-ring.useNotifications', (useNotifications) => @projectRingNotification.isEnabled = useNotifications
 
-    setupAutomaticProjectBuffersSaving: ->
-        atom.config.observe 'project-ring.doNotSaveAndRestoreOpenProjectFiles', (doNotSaveAndRestoreOpenProjectFiles) =>
-            if doNotSaveAndRestoreOpenProjectFiles
-                atom.project.off 'buffer-created.project-ring'
-                atom.project.buffers.forEach (buffer) -> buffer.off 'destroyed.project-ring'
-                return unless @inProject
-                @getProjectState().openBufferPaths = []
-                @saveProjectRing()
-            else
-                onBufferDestroyedProjectRingEventHandlerFactory = (bufferDestroyed) =>
-                    =>
-                        return unless bufferDestroyed.file
-                        setTimeout (
-                                =>
-                                    bufferDestroyedPathProxy = bufferDestroyed.file.path.toLowerCase()
-                                    defaultProjectState = @getProjectState defaultProjectCacheKey
-                                    if (defaultProjectState.openBufferPaths.some (openBufferPath) ->
-                                        openBufferPath.toLowerCase() is bufferDestroyedPathProxy)
-                                            defaultProjectState.openBufferPaths =
-                                                defaultProjectState.openBufferPaths.filter (openBufferPath) ->
-                                                    openBufferPath.toLowerCase() isnt bufferDestroyedPathProxy
-                                            @saveProjectRing()
-                                            return
-                                    return unless @inProject
-                                    currentProjectState = @getProjectState()
-                                    if (currentProjectState.openBufferPaths.some (openBufferPath) ->
-                                            openBufferPath.toLowerCase() is bufferDestroyedPathProxy)
-                                        currentProjectState.openBufferPaths =
-                                            currentProjectState.openBufferPaths.filter (openBufferPath) =>
-                                                openBufferPath.toLowerCase() isnt bufferDestroyedPathProxy
-                                        @saveProjectRing()
-                            ),
-                            @projectRingInvariantState.deletionDelay
-                atom.project.buffers.forEach (buffer) =>
-                    buffer.off 'destroyed.project-ring'
-                    buffer.on 'destroyed.project-ring', onBufferDestroyedProjectRingEventHandlerFactory buffer
-                atom.project.on 'buffer-created.project-ring', (openProjectBuffer) =>
-                    return unless openProjectBuffer.file
-                    openProjectBuffer.off 'destroyed.project-ring'
-                    openProjectBuffer.on 'destroyed.project-ring', onBufferDestroyedProjectRingEventHandlerFactory openProjectBuffer
-                    if atom.config.get 'project-ring.keepAllOpenFilesRegardlessOfProject'
-                        @alwaysOpenBufferPath openProjectBuffer.file.path
-                        return
-                    return unless \
-                        getProjectRootPath() and
-                        (new RegExp(
-                            '^' + @turnToPathRegExp(getProjectRootPath()), 'i'
-                        ).test(openProjectBuffer.file.path) or
-                        atom.config.get 'project-ring.keepOutOfPathOpenFilesInCurrentProject')
-                    @addOpenBufferPathToProject openProjectBuffer.file.path
-        setTimeout (
-                =>
-                    { $ } = require 'atom-space-pen-views'
-                    $('.tab-bar').on 'drop', => setTimeout (=> @add updateOpenBufferPathPositionsOnly: true), 0
-            ),
-            0
+	setupAutomaticProjectFileSaving: ->
+		atom.config.observe 'project-ring.doNotSaveAndRestoreOpenProjectFiles', (doNotSaveAndRestoreOpenProjectFiles) =>
+			if doNotSaveAndRestoreOpenProjectFiles
+				lib.offAddedBuffer()
+				atom.project.buffers.forEach (buffer) -> lib.offDestroyedBuffer buffer
+				return unless @currentProjectState
+				@currentProjectState.files.open = []
+				@saveProjectRing()
+			else
+				onBufferDestroyedProjectRingEventHandlerFactory = (bufferDestroyed) =>
+					=>
+						return unless bufferDestroyed.file
+						setTimeout (=>
+							bufferDestroyedPathProxy = bufferDestroyed.file.path.toLowerCase()
+							defaultProjectState = @getProjectState lib.defaultProjectCacheKey
+							if lib.findInArray defaultProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
+								defaultProjectState.files.open =
+									lib.filterFromArray defaultProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
+								@saveProjectRing()
+								return
+							return unless @currentProjectState
+							if lib.findInArray @currentProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
+								@currentProjectState.files.open =
+									lib.filterFromArray @currentProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
+								@saveProjectRing()
+						), @projectRingInvariantState.deletionDelay
+				atom.project.buffers.forEach (buffer) =>
+					lib.offDestroyedBuffer buffer
+					lib.onceDestroyedBuffer buffer, onBufferDestroyedProjectRingEventHandlerFactory buffer
+				lib.onAddedBuffer (openProjectBuffer) =>
+					return unless openProjectBuffer.file
+					lib.offDestroyedBuffer openProjectBuffer
+					lib.onceDestroyedBuffer openProjectBuffer, onBufferDestroyedProjectRingEventHandlerFactory openProjectBuffer
+					if atom.config.get 'project-ring.keepAllOpenFilesRegardlessOfProject'
+						@alwaysOpenFilePath openProjectBuffer.file.path
+						return
+					return unless \
+						atom.config.get('project-ring.keepOutOfPathOpenFilesInCurrentProject') or
+						lib.filePathIsInProject openProjectBuffer.file.path
+					@addOpenFilePathToProject openProjectBuffer.file.path
+		setTimeout (=>
+			{ $ } = require 'atom-space-pen-views'
+			$('.tab-bar').on 'drop', => setTimeout (=> @add updateOpenFilePathPositionsOnly: true), 0
+		), 0
 
-    setupAutomaticProjectLoadingOnProjectPathChange: ->
-        atom.project.on 'path-changed', =>
-            return unless @statesCache and getProjectRootPath() and not @currentlySettingProjectPath
-            @unlink true, true
-            @processProjectRingViewProjectSelection projectState: @getProjectState(), isAsynchronousProjectPathChange: true
+	setupAutomaticRootDirectoryAndTreeViewStateSaving: ->
+		lib.onChangedPaths (rootDirectories) =>
+			setTimeout (=>
+				if rootDirectories and rootDirectories.length and rootDirectories[0] is 'C:\\Users\\sdesyllas\\.atom\\packages\\project-ring\\lib'
+					;	#throw new Error('hi!')
+				return unless @checkIfInProject() and not @currentlySettingProjectRootDirectories
+				@add updateRootDirectoriesAndTreeViewStateOnly: true
+			), @projectRingInvariantState.changedPathsUpdateDelay
 
-    runFilePatternHiding: (useFilePatternHiding) ->
-        setTimeout (
-                =>
-                    useFilePatternHiding =
-                        if typeof useFilePatternHiding isnt 'undefined'
-                        then useFilePatternHiding
-                        else atom.config.get 'project-ring.useFilePatternHiding'
-                    entries = atom.packages.getLoadedPackage('tree-view')?.mainModule.treeView?.\
-                        find('.tree-view > .directory > .entries').find('.directory, .file') ? []
-                    return unless entries.length
-                    { $ } = require 'atom-space-pen-views'
-                    if useFilePatternHiding
-                        filePattern = atom.config.get 'project-ring.filePatternToHide'
-                        if filePattern and not /^\s*$/.test filePattern
-                            try
-                                filePattern = new RegExp filePattern, 'i'
-                            catch error
-                                filePattern = null
-                        else
-                            filePattern = null
-                        unless filePattern
-                            @runFilePatternHiding false
-                            return
-                        reverseFilePattern = atom.config.get 'project-ring.filePatternToExcludeFromHiding'
-                        if reverseFilePattern and not /^\s*$/.test reverseFilePattern
-                            try
-                                reverseFilePattern = new RegExp reverseFilePattern, 'i'
-                            catch error
-                                reverseFilePattern = null
-                        else
-                            reverseFilePattern = null
-                        entries.each ->
-                            $$ = $ @
-                            $fileMetadata = $$.find('.name')
-                            filePath = $fileMetadata.attr('data-path')
-                            fileName = $fileMetadata.text()
-                            if \
-                                ((filePattern.test filePath) and
-                                not (reverseFilePattern and reverseFilePattern.test filePath)) or
-                                ((filePattern.test fileName) and
-                                not (reverseFilePattern and reverseFilePattern.test fileName))
-                                    $$.removeAttr('data-project-ring-filtered').attr('data-project-ring-filtered', 'true').css 'display', 'none'
-                            else
-                                $$.removeAttr('data-project-ring-filtered').css 'display', ''
-                    else
-                        (entries.filter -> $(@).attr('data-project-ring-filtered') is 'true').each ->
-                            $(@).removeAttr('data-project-ring-filtered').css 'display', ''
-            ),
-            0
+	runFilePatternHiding: (useFilePatternHiding) ->
+		setTimeout (=>
+			useFilePatternHiding =
+				if typeof useFilePatternHiding isnt 'undefined' then useFilePatternHiding else atom.config.get 'project-ring.useFilePatternHiding'
+			entries = atom.packages.getLoadedPackage('tree-view')?.mainModule.treeView?.find('.tree-view > .directory > .entries')\
+				.find('.directory, .file') ? []
+			return unless entries.length
+			{ $ } = require 'atom-space-pen-views'
+			if useFilePatternHiding
+				filePattern = atom.config.get 'project-ring.filePatternToHide'
+				if filePattern and not /^\s*$/.test filePattern
+					try
+						filePattern = new RegExp filePattern, 'i'
+					catch error
+						filePattern = null
+				else
+					filePattern = null
+				unless filePattern
+					@runFilePatternHiding false
+					return
+				reverseFilePattern = atom.config.get 'project-ring.filePatternToExcludeFromHiding'
+				if reverseFilePattern and not /^\s*$/.test reverseFilePattern
+					try
+						reverseFilePattern = new RegExp reverseFilePattern, 'i'
+					catch error
+						reverseFilePattern = null
+				else
+					reverseFilePattern = null
+				entries.each ->
+					$$ = $ @
+					$fileMetadata = $$.find('.name')
+					filePath = $fileMetadata.attr('data-path')
+					fileName = $fileMetadata.text()
+					if \
+						(filePattern.test(filePath) and not (reverseFilePattern and reverseFilePattern.test(filePath))) or
+						(filePattern.test(fileName) and not (reverseFilePattern and reverseFilePattern.test(fileName)))
+							$$.removeAttr('data-project-ring-filtered').attr('data-project-ring-filtered', 'true').css 'display', 'none'
+					else
+						$$.removeAttr('data-project-ring-filtered').css 'display', ''
+			else
+				(entries.filter -> $(@).attr('data-project-ring-filtered') is 'true').each ->
+					$(@).removeAttr('data-project-ring-filtered').css 'display', ''
+		), 0
 
-    getConfigurationPath: ->
-        _path = require 'path'
-        path = _path.join process.env[if process.platform is 'win32' then 'USERPROFILE' else 'HOME'], '.atom-project-ring'
-        _fs = require 'fs'
-        _fs.mkdirSync path unless _fs.existsSync path
-        path
+	setProjectState: (cacheKey, projectState) ->
+		return unless typeof cacheKey is 'string' and typeof projectState is 'object'
+		@statesCache = {} unless typeof @statesCache is 'object'
+		@statesCache[lib.getProjectKey cacheKey] = projectState
 
-    getConfigurationFilePath: (path) ->
-        _path = require 'path'
-        _path.join @getConfigurationPath(), path
+	getProjectState: (cacheKey) ->
+		return undefined unless @statesCache
+		return @statesCache[lib.getProjectKey cacheKey]
 
-    getPathFilePath: ->
-        @getConfigurationFilePath @projectRingId + '_project_ring_path.txt'
+	unsetProjectState: (cacheKey) ->
+		return unless (typeof cacheKey is 'string' or cacheKey is null) and typeof @statesCache is 'object'
+		delete @statesCache[lib.getProjectKey cacheKey]
 
-    getCSONFilePath: ->
-        return unless @projectRingId
-        csonFilePath = undefined
-        _fs = require 'fs'
-        try
-            csonFilePath = _fs.readFileSync @getPathFilePath(), 'utf8'
-        catch error
-            return error
-        csonFilePath
+	watchProjectRingConfiguration: (watch) ->
+		return unless lib.getProjectRingId()
+		_fs = require 'fs'
+		csonFilePath = lib.getCSONFilePath()
+		if watch and csonFilePath
+			_fs.watchFile \
+				csonFilePath,
+				{ persistent: true, interval: @projectRingInvariantState.configurationFileWatchInterval },
+				(currentStat, previousStat) =>
+					if @currentlySavingConfiguration.csonFile
+						@currentlySavingConfiguration.csonFile = false
+						return
+					@setProjectRing lib.getProjectRingId()
+		else
+			_fs.unwatchFile csonFilePath if csonFilePath
 
-    setProjectState: (cacheKey, projectState) ->
-        return unless typeof cacheKey is 'string' and typeof projectState is 'object'
-        @statesCache = {} unless typeof @statesCache is 'object'
-        @statesCache[getProjectPathAsKey cacheKey] = projectState
+	setProjectRing: (id, projectKeyToLoad) ->
+		@watchProjectRingConfiguration false
+		lib.setProjectRingId id
+		@loadProjectRing projectKeyToLoad
+		@watchProjectRingConfiguration true
 
-    getProjectState: (cacheKey) ->
-        return undefined unless @statesCache
-        return @statesCache[getProjectPathAsKey cacheKey]
+	loadProjectRing: (projectKeyToLoad) ->
+		return unless lib.getProjectRingId()
+		csonFilePath = lib.getCSONFilePath()
+		return unless csonFilePath
+		defaultProjectState = {
+			key: lib.defaultProjectCacheKey,
+			isDefault: true,
+			rootDirectories: [],
+			files: { open: [],  banned: [] },
+			treeViewState: null
+		}
+		_fs = require 'fs'
+		unless _fs.existsSync csonFilePath
+			@setProjectState lib.defaultProjectCacheKey, defaultProjectState
+			@saveProjectRing()
+		_cson = require 'season'
+		try
+			@statesCache = _cson.readFileSync csonFilePath
+			# START: TRANSITIONAL CODE TO MIGRATE THE PROJECT SPECIFICATION TO THE NEW FORMAT
+			if @statesCache and @statesCache[lib.defaultProjectCacheKey] and @statesCache[lib.defaultProjectCacheKey]['openBufferPaths'] instanceof Array
+				statesCacheTmp = {}
+				for key in Object.keys @statesCache
+					projectStateTmp = @statesCache[key]
+					keyTmp = projectStateTmp.alias or lib.defaultProjectCacheKey
+					statesCacheTmp[keyTmp] = {
+						key: keyTmp,
+						isDefault: keyTmp is lib.defaultProjectCacheKey,
+						rootDirectories: if projectStateTmp.projectPath then [ projectStateTmp.projectPath ] else [],
+						files: {
+							open: projectStateTmp.openBufferPaths,
+							banned: if projectStateTmp.bannedBufferPaths instanceof Array then projectStateTmp.bannedBufferPaths else []
+						},
+						treeViewState: projectStateTmp.treeViewState or null
+					}
+				@statesCache = statesCacheTmp
+				@saveProjectRing()
+				_fs = require 'fs'
+				try
+					pathFilePath = lib.getConfigurationFilePath 'default_project_ring_path.txt'
+					_fs.unlinkSync pathFilePath if _fs.existsSync pathFilePath
+				catch
+			# END: TRANSITIONAL CODE TO MIGRATE THE PROJECT SPECIFICATION TO THE NEW FORMAT
+			projectToLoad = @getProjectState projectKeyToLoad
+			if projectToLoad and not projectToLoad.isDefault
+				setTimeout (=>
+					@processProjectRingViewProjectSelection projectState: @getProjectState projectToLoad.key
+					@runFilePatternHiding()
+				), 0
+		catch error
+			@projectRingNotification.alert 'Could not load the project ring data for id: "' + lib.getProjectRingId() + '" (' + error + ')'
+			return
+		@setProjectState lib.defaultProjectCacheKey, defaultProjectState unless @getProjectState lib.defaultProjectCacheKey
+		fixedStatesCacheKeys = false
+		for stateKey in Object.keys @statesCache
+			stateKeyProxy = lib.getProjectKey stateKey
+			unless stateKey is stateKeyProxy
+				@setProjectState stateKeyProxy, @getProjectState stateKey
+				@unsetProjectState stateKey
+				fixedStatesCacheKeys = true
+		@saveProjectRing() if fixedStatesCacheKeys
+		lib.updateDefaultProjectConfiguration projectKeyToLoad, Object.keys @statesCache
+		lib.emitStatesCacheInitialized()
 
-    unsetProjectState: (cacheKey) ->
-        return unless (typeof cacheKey is 'string' or cacheKey is null) and typeof @statesCache is 'object'
-        delete @statesCache[getProjectPathAsKey cacheKey]
+	saveProjectRing: ->
+		return unless lib.getProjectRingId()
+		csonFilePath = lib.getCSONFilePath()
+		return unless csonFilePath
+		_cson = require 'season'
+		try
+			@currentlySavingConfiguration.csonFile = true
+			_cson.writeFileSync csonFilePath, @statesCache
+		catch error
+			@currentlySavingConfiguration.csonFile = false
+			@projectRingNotification.alert 'Could not save the project ring data for id: "' + lib.getProjectRingId() + '" (' + error + ')'
+			return
 
-    watchProjectRingConfiguration: (watch) ->
-        return unless @projectRingId
-        _fs = require 'fs'
-        pathFilePath = @getPathFilePath()
-        csonFilePath = @getCSONFilePath()
-        if watch
-            if pathFilePath
-                _fs.watchFile \
-                    pathFilePath,
-                    { persistent: true, interval: @projectRingInvariantState.configurationFileWatchInterval },
-                    (currentStat, previousStat) => @setProjectRing @projectRingId # , getProjectRootPath()
-            if csonFilePath
-                _fs.watchFile \
-                    csonFilePath,
-                    { persistent: true, interval: @projectRingInvariantState.configurationFileWatchInterval },
-                    (currentStat, previousStat) =>
-                        if @currentlySavingConfiguration.csonFile
-                            @currentlySavingConfiguration.csonFile = false
-                            return
-                        @setProjectRing @projectRingId # , getProjectRootPath()
-        else
-            _fs.unwatchFile pathFilePath if pathFilePath
-            _fs.unwatchFile csonFilePath if csonFilePath
+	deactivate: ->
+		@projectRingView.destroy() if @projectRingView
+		@projectRingInputView.destroy() if @projectRingInputView
+		@projectRingFileSelectView.destroy() if @projectRingFileSelectView
 
-    setProjectRing: (id, projectSpecificationToLoad) ->
-        @watchProjectRingConfiguration false
-        id = formatProjectRingId id
-        @projectRingId = id
-        pathFilePath = @getPathFilePath()
-        ok = true
-        _fs = require 'fs'
-        unless _fs.existsSync pathFilePath
-            try
-                _fs.writeFileSync pathFilePath, (@getConfigurationFilePath @projectRingId + '_project_ring.cson')
-            catch error
-                ok = false
-                @projectRingNotification.alert 'Could not set project ring files for id: "' + id + '" (' + error + ')'
-        return unless ok
-        @loadProjectRing projectSpecificationToLoad
-        @watchProjectRingConfiguration true
+	serialize: ->
 
-    loadProjectRing: (projectSpecificationToLoad) ->
-        return unless @projectRingId
-        csonFilePath = @getCSONFilePath()
-        return unless csonFilePath
-        _fs = require 'fs'
-        unless _fs.existsSync csonFilePath
-            @setProjectState defaultProjectCacheKey, { openBufferPaths: [], isIgnored: true }
-            return
-        _cson = require 'season'
-        try
-            @statesCache = _cson.readFileSync csonFilePath
-            if \
-                projectSpecificationToLoad and
-                not /^\s*$/.test(projectSpecificationToLoad) and
-                @statesCache
-                    projectSpecificationToLoad = projectSpecificationToLoad.toLowerCase()
-                    for stateKey in Object.keys @statesCache
-                        projectState = @getProjectState stateKey
-                        unless \
-                            not projectState.isIgnored and
-                            (projectState.alias.toLowerCase() is projectSpecificationToLoad or
-                             projectState.projectPath.toLowerCase() is projectSpecificationToLoad)
-                                continue
-                        stateKeyToUseForProjectLoading = stateKey
-                        setTimeout (
-                                =>
-                                    @processProjectRingViewProjectSelection projectState: @getProjectState stateKeyToUseForProjectLoading
-                                    @runFilePatternHiding()
-                            ),
-                            0
-                        break
-        catch error
-            @projectRingNotification.alert \
-                'Could not load the project ring data for id: "' + @projectRingId + '" (' + error + ')'
-            return
-        @setProjectState defaultProjectCacheKey, { openBufferPaths: [], isIgnored: true } unless @getProjectState defaultProjectCacheKey
-        # ENSURE THAT ALL @statesCache KEYS ARE LOWERCASE
-        fixedStatesCacheKeys = false
-        for stateKey in Object.keys @statesCache
-            stateKeyProxy = getProjectPathAsKey stateKey
-            unless stateKey is stateKeyProxy
-                @setProjectState stateKeyProxy, @getProjectState stateKey
-                @unsetProjectState stateKey
-                fixedStatesCacheKeys = true
-        @saveProjectRing() if fixedStatesCacheKeys
-        atom.project.emit 'project-ring-states-cache-initialized'
+	loadProjectRingView: ->
+		unless @projectRingView
+			ProjectRingView = require './project-ring-view'
+			@projectRingView = new ProjectRingView @
 
-    saveProjectRing: ->
-        return unless @projectRingId
-        csonFilePath = @getCSONFilePath()
-        return unless csonFilePath
-        _cson = require 'season'
-        try
-            @currentlySavingConfiguration.csonFile = true
-            _cson.writeFileSync csonFilePath, @statesCache
-        catch error
-            @currentlySavingConfiguration.csonFile = false
-            @projectRingNotification.alert \
-                'Could not save the project ring data for id: "' + @projectRingId + '" (' + error + ')'
-            return
+	loadProjectRingInputView: ->
+		unless @projectRingInputView
+			@projectRingInputView = new (require './project-ring-input-view') @
 
-    deactivate: ->
-        @projectRingView.destroy() if @projectRingView
-        @projectRingInputView.destroy() if @projectRingInputView
-        @projectRingBufferSelectView.destroy() if @projectRingBufferSelectView
+	loadProjectRingFileSelectView: ->
+		unless @projectRingFileSelectView
+			@projectRingFileSelectView = new (require './project-ring-file-select-view') @
 
-    serialize: ->
+	getOpenFilePaths: ->
+		unless atom.config.get 'project-ring.doNotSaveAndRestoreOpenProjectFiles'
+			return (atom.workspace.getTextEditors().filter (editor) -> editor.buffer.file).map (editor) -> editor.buffer.file.path
+		return []
 
-    loadProjectRingView: ->
-        unless @projectRingView
-            ProjectRingView = require './project-ring-view'
-            @projectRingView = new ProjectRingView @
+	checkIfInProject: (omitNotification) ->
+		unless @currentProjectState or (omitNotification ? true)
+			@projectRingNotification.alert 'No project has been loaded'
+		return @currentProjectState
 
-    loadProjectRingInputView: ->
-        unless @projectRingInputView
-            @projectRingInputView = new (require './project-ring-input-view') @
+	addOpenFilePathToProject: (openFilePathToAdd, manually) ->
+		return unless @checkIfInProject not manually
+		deferedAddition = if openFilePathToAdd and not manually then true else false
+		openFilePathToAdd = atom.workspace.getActiveTextEditor()?.buffer.file?.path unless openFilePathToAdd
+		return unless openFilePathToAdd
+		openFilePathToAdd = openFilePathToAdd.toLowerCase()
+		defaultProjectState = @getProjectState lib.defaultProjectCacheKey
+		return if \
+			not manually and
+			lib.findInArray @currentProjectState.files.banned, openFilePathToAdd, String.prototype.toLowerCase
+		if manually
+			defaultProjectState.files.open =
+				lib.filterFromArray defaultProjectState.files.open, openFilePathToAdd, String.prototype.toLowerCase
+		unless  lib.findInArray @currentProjectState.files.open, openFilePathToAdd, String.prototype.toLowerCase
+			onceAddedTextEditorHandler = =>
+				setTimeout (=>
+					@currentProjectState.files.banned =
+						lib.filterFromArray @currentProjectState.files.banned, openFilePathToAdd, String.prototype.toLowerCase
+					newOpenFilePaths = @getOpenFilePaths().filter (openFilePathInAll) =>
+						openFilePathInAll.toLowerCase() is openFilePathToAdd or
+						lib.findInArray @currentProjectState.files.open, openFilePathInAll.toLowerCase(), String.prototype.toLowerCase
+					@currentProjectState.files.open = newOpenFilePaths
+					@saveProjectRing()
+					if manually
+						@projectRingNotification.notify \
+							'File "' + require('path').basename(openFilePathToAdd) + '" has been added to project "' + @currentProjectState.key + '"'
+				), 0
+			if deferedAddition
+				lib.onceAddedTextEditor onceAddedTextEditorHandler
+			else
+				onceAddedTextEditorHandler()
 
-    loadProjectRingBufferSelectView: ->
-        unless @projectRingBufferSelectView
-            @projectRingBufferSelectView = new (require './project-ring-buffer-select-view') @
+	banOpenFilePathFromProject: (openFilePathToBan) ->
+		return unless @checkIfInProject false
+		openFilePathToBan = atom.workspace.getActiveTextEditor()?.buffer.file?.path unless openFilePathToBan
+		return unless openFilePathToBan
+		openFilePathToBanProxy = openFilePathToBan.toLowerCase()
+		unless lib.findInArray @currentProjectState.files.banned, openFilePathToBanProxy, String.prototype.toLowerCase
+			@currentProjectState.files.open =
+				lib.filterFromArray @currentProjectState.files.open, openFilePathToBanProxy, String.prototype.toLowerCase
+			@currentProjectState.files.banned.push openFilePathToBan
+			@saveProjectRing()
+			@projectRingNotification.notify \
+				'File "' + require('path').basename(openFilePathToBan) + '" has been banned from project "'+ @currentProjectState.key + '"'
 
-    getOpenBufferPaths: ->
-        unless atom.config.get 'project-ring.doNotSaveAndRestoreOpenProjectFiles'
-            return (atom.workspace.getEditors().filter (editor) -> editor.buffer.file).map (editor) -> editor.buffer.file.path
-        return []
+	alwaysOpenFilePath: (filePathToAlwaysOpen) ->
+		filePathToAlwaysOpen = atom.workspace.getActiveTextEditor()?.buffer.file?.path unless filePathToAlwaysOpen
+		filePathToAlwaysOpenProxy = filePathToAlwaysOpen?.toLowerCase()
+		defaultProjectState = @getProjectState lib.defaultProjectCacheKey
+		return unless \
+			filePathToAlwaysOpen and
+			not lib.findInArray defaultProjectState.files.open, filePathToAlwaysOpenProxy, String.prototype.toLowerCase
+		for stateKey in Object.keys @statesCache
+			projectState = @getProjectState stateKey
+			continue if projectState.isDefault
+			projectState.files.open =
+				lib.filterFromArray projectState.files.open, filePathToAlwaysOpenProxy, String.prototype.toLowerCase
+		defaultProjectState.files.open.push filePathToAlwaysOpen
+		@saveProjectRing()
+		@projectRingNotification.notify 'File "' + require('path').basename(filePathToAlwaysOpen) + '" has been marked to always open'
 
-    turnToPathRegExp: (path) ->
-        return '' unless path
-        path.replace @projectRingInvariantState.regExpEscapesRegExp, (match) -> '\\' + match
+	add: (options) ->
+		options = options or {}
+		@projectRingView.destroy() if @projectRingView
+		treeViewState = atom.packages.getLoadedPackage('tree-view')?.serialize() or null
+		if options.updateRootDirectoriesAndTreeViewStateOnly
+			return unless @checkIfInProject()
+			@currentProjectState.rootDirectories = lib.getProjectRootDirectories()
+			@currentProjectState.treeViewState = treeViewState
+			@saveProjectRing()
+			return
+		if options.updateOpenFilePathPositionsOnly
+			return unless @checkIfInProject()
+			currentProjectOpenFilePaths = @currentProjectState.files.open.map (openFilePath) -> openFilePath.toLowerCase()
+			@currentProjectState.files.open = @getOpenFilePaths().filter (openFilePath) -> openFilePath.toLowerCase() in currentProjectOpenFilePaths
+			@saveProjectRing()
+			return
+		key = lib.getProjectKey options.key or @currentProjectState?.key or 'Project'
+		key = '...' + key.substr key.length - 97 if key.length > 100
+		unless @currentProjectState
+			salt = 0
+			keyTemp = key
+			while keyTemp in Object.keys @statesCache
+				keyTemp = key + (++salt).toString()
+			key = keyTemp
+		projectKeyToLoadAtStartUp = lib.getDefaultProjectToLoadAtStartUp() or ''
+		if \
+			@currentProjectState and
+			key isnt @currentProjectState.key and
+			key.toLowerCase() is projectKeyToLoadAtStartUp.toLowerCase()
+				lib.setDefaultProjectToLoadAtStartUp key
+		if options.renameOnly
+			return unless @checkIfInProject false
+			if @currentProjectState
+				oldKey = @currentProjectState.key
+				@currentProjectState.key = key
+				@unsetProjectState oldKey
+				@setProjectState key, @currentProjectState
+				@saveProjectRing()
+				lib.updateDefaultProjectConfiguration key, Object.keys(@statesCache), true, oldKey
+				@projectRingNotification.notify 'Project "' + oldKey + '" is now known as "' + key + '"'
+			return
+		filePathsToAlwaysOpen = @getProjectState(lib.defaultProjectCacheKey).files.open.map (openFilePath) -> openFilePath.toLowerCase()
+		@currentProjectState = {
+			key: key,
+			isDefault: false,
+			rootDirectories: lib.getProjectRootDirectories(),
+			files: {
+				open: @getOpenFilePaths().filter((openFilePath) -> openFilePath.toLowerCase() not in filePathsToAlwaysOpen),
+				banned: []
+			},
+			treeViewState: treeViewState
+		}
+		@setProjectState key, @currentProjectState
+		@saveProjectRing()
+		lib.updateDefaultProjectConfiguration key, Object.keys(@statesCache), true, key
+		@projectRingNotification.notify 'Project "' + key + '" has been created/updated'
 
-    checkIfInProject: (omitAlert) ->
-        unless @inProject or (omitAlert ? true)
-            @projectRingNotification.alert 'You have not loaded a project yet.'
-        @inProject
+	addAs: (renameOnly) ->
+		return if renameOnly and not @checkIfInProject false
+		@loadProjectRingInputView()
+		unless @projectRingInputView.isVisible()
+			if @currentProjectState then key = @currentProjectState.key else key = undefined
+			@projectRingInputView.attach { viewMode: 'project', renameOnly: renameOnly }, 'Project name', key
 
-    addOpenBufferPathToProject: (openBufferPathToAdd, manually) ->
-        return unless @checkIfInProject not manually
-        deferedAddition = if openBufferPathToAdd and not manually then true else false
-        openBufferPathToAdd = atom.workspace.getActiveEditor()?.buffer.file?.path unless openBufferPathToAdd
-        return unless openBufferPathToAdd
-        openBufferPathToAdd = openBufferPathToAdd.toLowerCase()
-        defaultProjectState = @getProjectState defaultProjectCacheKey
-        currentProjectState = @getProjectState()
-        return if \
-            not manually and
-            (currentProjectState.bannedBufferPaths.some (bannedBufferPath) ->
-                bannedBufferPath.toLowerCase() is openBufferPathToAdd)
-        if manually
-            defaultProjectState.openBufferPaths =
-                defaultProjectState.openBufferPaths.filter (openBufferPath) -> openBufferPath.toLowerCase() isnt openBufferPathToAdd
-        unless (currentProjectState.openBufferPaths.some (openBufferPath) -> openBufferPath.toLowerCase() is openBufferPathToAdd)
-            atom.workspace.once 'editor-created.project-ring editor-created-forced.project-ring', =>
-                setTimeout (
-                    =>
-                        currentProjectState.bannedBufferPaths =
-                            currentProjectState.bannedBufferPaths.filter (bannedBufferPath) ->
-                                bannedBufferPath.toLowerCase() isnt openBufferPathToAdd
-                        newOpenBufferPaths = @getOpenBufferPaths().filter (openBufferPathInAll) =>
-                            openBufferPathInAll.toLowerCase() is openBufferPathToAdd or
-                            currentProjectState.openBufferPaths.some (openBufferPath) ->
-                                openBufferPath.toLowerCase() is openBufferPathInAll.toLowerCase()
-                        currentProjectState.openBufferPaths = newOpenBufferPaths
-                        @saveProjectRing()
-                        if manually
-                            @projectRingNotification.notify \
-                                'File "' +
-                                require('path').basename(openBufferPathToAdd) +
-                                '" has been added to project "' +
-                                currentProjectState.alias +
-                                '"'
-                ),
-                0
-            atom.workspace.emit 'editor-created-forced.project-ring' unless deferedAddition
+	toggle: (openProjectFilesOnly) ->
+		deleteKeyBinding = lib.findInArray atom.keymaps.getKeyBindings(), 'project-ring:add', -> @.command
+		if deleteKeyBinding
+		then deleteKeyBinding =
+			' (delete selected: ' + deleteKeyBinding.keystrokes.split(/\s+/)[0].replace(/-[^-]+$/, '-') + 'delete)'
+		else deleteKeyBinding = ''
+		if @projectRingView and @projectRingView.isVisible()
+			@projectRingView.destroy()
+		else
+			@loadProjectRingView()
+			@projectRingView.attach {
+				viewMode: 'project',
+				openProjectFilesOnly: openProjectFilesOnly
+				placeholderText:
+					if not openProjectFilesOnly
+					then 'Load project...' + deleteKeyBinding
+					else 'Load files only...' + deleteKeyBinding
+			}, @statesCache, 'key'
 
-    banOpenBufferPathFromProject: (openBufferPathToBan) ->
-        return unless @checkIfInProject()
-        openBufferPathToBan = atom.workspace.getActiveEditor()?.buffer.file?.path unless openBufferPathToBan
-        return unless openBufferPathToBan
-        openBufferPathToBanProxy = openBufferPathToBan.toLowerCase()
-        currentProjectState = @getProjectState()
-        unless (currentProjectState.bannedBufferPaths.some (openBufferPath) ->
-            openBufferPath.toLowerCase() is openBufferPathToBanProxy)
-                currentProjectState.openBufferPaths =
-                    currentProjectState.openBufferPaths.filter (openBufferPath) ->
-                        openBufferPath.toLowerCase() isnt openBufferPathToBanProxy
-                currentProjectState.bannedBufferPaths.push openBufferPathToBan
-                @saveProjectRing()
-                @projectRingNotification.notify \
-                    'File "' +
-                    require('path').basename(openBufferPathToBan) +
-                    '" has been banned from project "'+
-                    currentProjectState.alias +
-                    '"'
+	addFilesToProject: ->
+		return unless @checkIfInProject false
+		@loadProjectRingFileSelectView()
+		unless @projectRingFileSelectView.isVisible()
+			fileSpecsToOfferForAddition = []
+			openFilesOfCurrentProject = @currentProjectState.files.open.map (openFilePath) -> openFilePath.toLowerCase()
+			(
+				Object.keys(@statesCache).filter (key) =>
+					not @getProjectState(key).isDefault and
+					key isnt @currentProjectState.key
+			).forEach (key) =>
+				projectState = @getProjectState key
+				(
+					projectState.files.open.filter (openFilePath) ->
+						openFilePathProxy = openFilePath.toLowerCase()
+						openFilePathProxy not in openFilesOfCurrentProject and
+						not lib.findInArray fileSpecsToOfferForAddition, openFilePathProxy, -> @.path.toLowerCase()
+				).forEach (openFilePath) =>
+					description = openFilePath
+					if description.length > 40
+						description = '...' + description.substr description.length - 37
+					fileSpecsToOfferForAddition.push title: key, description: description, path: openFilePath
+			(
+				atom.project.buffers.filter (buffer) ->
+					filePathProxy = buffer.file?.path.toLowerCase()
+					buffer.file and
+					filePathProxy not in openFilesOfCurrentProject and
+					not lib.findInArray fileSpecsToOfferForAddition, filePathProxy, -> @.path.toLowerCase()
+			).forEach (buffer) ->
+				description = buffer.file.path
+				description = '...' + description.substr description.length - 37 if description.length > 40
+				fileSpecsToOfferForAddition.push title: 'Not In Project', description: description, path: buffer.file.path
+			fileSpecsToOfferForAddition.sort (bufferPathSpec1, bufferPathSpec2) ->
+				if bufferPathSpec1.title is 'Not In Project' and bufferPathSpec2.title is 'Not In Project'
+					return bufferPathSpec1.title.toLowerCase() <= bufferPathSpec2.title.toLowerCase()
+				return true if bufferPathSpec1.title is 'Not In Project'
+				return false if bufferPathSpec2.title is 'Not in Project'
+				bufferPathSpec1.title.toLowerCase() <= bufferPathSpec2.title.toLowerCase()
+			@projectRingFileSelectView.attach { viewMode: 'add', confirmValue: 'Add' }, fileSpecsToOfferForAddition
 
-    alwaysOpenBufferPath: (bufferPathToAlwaysOpen) ->
-        bufferPathToAlwaysOpen = atom.workspace.getActiveEditor()?.buffer.file?.path unless bufferPathToAlwaysOpen
-        bufferPathToAlwaysOpenProxy = bufferPathToAlwaysOpen?.toLowerCase()
-        defaultProjectState = @getProjectState defaultProjectCacheKey
-        return unless \
-            bufferPathToAlwaysOpen and
-            not (defaultProjectState.openBufferPaths.some (openBufferPath) ->
-                openBufferPath.toLowerCase() is bufferPathToAlwaysOpenProxy)
-        for stateKey in Object.keys @statesCache
-            projectState = @getProjectState stateKey
-            continue if projectState.isIgnored
-            projectState.openBufferPaths = projectState.openBufferPaths.filter (openBufferPath) ->
-                openBufferPath.toLowerCase() isnt bufferPathToAlwaysOpenProxy
-        defaultProjectState.openBufferPaths.push bufferPathToAlwaysOpen
-        @saveProjectRing()
-        @projectRingNotification.notify \
-            'File "' +
-            require('path').basename(bufferPathToAlwaysOpen) +
-            '" has been marked to always open'
+	banFilesFromProject: ->
+		return unless @checkIfInProject false
+		@loadProjectRingFileSelectView()
+		unless @projectRingFileSelectView.isVisible()
+			filePathsToOfferForBanning = []
+			(
+				atom.project.buffers.filter (buffer) ->
+					buffer.file and
+					not lib.findInArray filePathsToOfferForBanning, buffer.file.path.toLowerCase(), -> @.path.toLowerCase()
+			).forEach (buffer) ->
+				description = buffer.file.path
+				description = '...' + description.substr description.length - 37 if description.length > 40
+				filePathsToOfferForBanning.push title: require('path').basename buffer.file.path, description: description, path: buffer.file.path
+			filePathsToOfferForBanning.sort()
+			@projectRingFileSelectView.attach { viewMode: 'ban', confirmValue: 'Ban' }, filePathsToOfferForBanning
 
-    add: (options) ->
-        options = options or {}
-        @projectRingView.destroy() if @projectRingView
-        return unless getProjectRootPath() and not /^\s*$/.test getProjectRootPath()
-        treeViewState = atom.packages.getLoadedPackage('tree-view')?.serialize()
-        currentProjectState = @getProjectState()
-        if options.updateTreeViewStateOnly
-            return unless @checkIfInProject()
-            currentProjectState.treeViewState = treeViewState
-            @saveProjectRing()
-            return
-        if options.updateOpenBufferPathPositionsOnly
-            return unless @checkIfInProject()
-            currentProjectOpenBufferPaths = currentProjectState.openBufferPaths.map (openBufferPath) -> openBufferPath.toLowerCase()
-            currentProjectState.openBufferPaths = @getOpenBufferPaths().filter (openBufferPath) ->
-                openBufferPath.toLowerCase() in currentProjectOpenBufferPaths
-            @saveProjectRing()
-            return
-        alias = options.alias or currentProjectState?.alias or require('path').basename getProjectRootPath()
-        alias = '...' + alias.substr alias.length - 97 if alias.length > 100
-        unless currentProjectState
-            aliases = (Object.keys(@statesCache).filter (projectPath) =>
-                not @getProjectState(projectPath).isIgnored).map (projectPath) => @getProjectState(projectPath).alias
-            if alias in aliases
-                salt = 1
-                aliasTemp = alias + salt.toString()
-                while aliasTemp in aliases
-                    aliasTemp = alias + (++salt).toString()
-                alias = aliasTemp
-        projectToLoadOnStartUp = atom.config.get('project-ring.projectToLoadOnStartUp') or ''
-        atomProjectPathAsKey = getProjectPathAsKey()
-        if \
-            currentProjectState and
-            (currentProjectState.alias is projectToLoadOnStartUp or
-             atomProjectPathAsKey is projectToLoadOnStartUp.toLowerCase()) and
-            alias isnt currentProjectState.alias
-                atom.config.set 'project-ring.projectToLoadOnStartUp', alias
-        if options.renameOnly
-            return unless @checkIfInProject()
-            if currentProjectState
-                oldAlias = currentProjectState.alias
-                currentProjectState.alias = alias
-                @saveProjectRing()
-                @projectRingNotification.notify 'Project "' + oldAlias + '" is now known as "' + alias + '"'
-            return
-        bufferPathsToAlwaysOpen =
-            @getProjectState(defaultProjectCacheKey).openBufferPaths.map (openBufferPath) -> openBufferPath.toLowerCase()
-        currentProjectState =
-            alias: alias
-            projectPath: getProjectRootPath()
-            treeViewState: treeViewState
-            openBufferPaths: @getOpenBufferPaths().filter (openBufferPath) -> openBufferPath.toLowerCase() not in bufferPathsToAlwaysOpen
-            bannedBufferPaths: []
-        @setProjectState atomProjectPathAsKey, currentProjectState
-        @saveProjectRing()
-        @projectRingNotification.notify 'Project "' + alias + '" has been created/updated'
-        @processProjectRingViewProjectSelection projectState: @getProjectState() unless @checkIfInProject()
+	alwaysOpenFiles: ->
+		return unless @checkIfInProject false
+		@loadProjectRingFileSelectView()
+		unless @projectRingFileSelectView.isVisible()
+			filePathsToOfferForAlwaysOpening = []
+			(
+				atom.project.buffers.filter (buffer) ->
+					buffer.file and
+					not lib.findInArray filePathsToOfferForAlwaysOpening, buffer.file.path.toLowerCase(), -> @.path.toLowerCase()
+			).forEach (buffer) ->
+				description = buffer.file.path
+				description = '...' + description.substr description.length - 37 if description.length > 40
+				filePathsToOfferForAlwaysOpening.push
+					title: require('path').basename buffer.file.path
+					description: description
+					path: buffer.file.path
+			filePathsToOfferForAlwaysOpening.sort()
+			@projectRingFileSelectView.attach { viewMode: 'always-open', confirmValue: 'Always Open' }, filePathsToOfferForAlwaysOpening
 
-    addAs: (renameOnly) ->
-        @loadProjectRingInputView()
-        unless @projectRingInputView.isVisible()
-            alias = getProjectRootPath()
-            atomProjectPathAsKeyProxy = getProjectPathAsKey()
-            currentProjectState = @getProjectState()
-            if currentProjectState
-            then (
-                if currentProjectState.alias is currentProjectState.projectPath
-                then alias = (require 'path').basename currentProjectState.projectPath
-                else alias = currentProjectState.alias
-            )
-            else alias = (require 'path').basename (if alias then alias else '')
-            @projectRingInputView.attach { viewMode: 'project', renameOnly: renameOnly }, 'Project alias', alias
+	deleteCurrentProject: ->
+		@projectRingView.destroy() if @projectRingView
+		return unless @currentProjectState
+		key = @currentProjectState.key
+		@currentProjectState = undefined
+		@unsetProjectState key if key
+		@saveProjectRing()
+		lib.updateDefaultProjectConfiguration '', Object.keys(@statesCache), true, key
+		@projectRingNotification.notify 'Project "' + key + '" has been deleted'
 
-    toggle: (openProjectBuffersOnly) ->
-        deleteKeyBinding = findInArray atom.keymap.getKeyBindings(), (keyBinding) -> keyBinding.command is 'project-ring:add'
-        if deleteKeyBinding
-        then deleteKeyBinding =
-            ' (delete selected: ' + deleteKeyBinding.keystrokes.split(/\s+/)[0].replace(/-[^-]+$/, '-') + 'delete)'
-        else deleteKeyBinding = ''
-        if @projectRingView and @projectRingView.isVisible()
-            @projectRingView.destroy()
-        else
-            @loadProjectRingView()
-            @projectRingView.attach {
-                viewMode: 'project',
-                openProjectBuffersOnly: openProjectBuffersOnly
-                placeholderText:
-                    if not openProjectBuffersOnly
-                    then 'Load project...' + deleteKeyBinding
-                    else 'Load files only...' + deleteKeyBinding
-            }, @statesCache, 'alias', 'projectPath'
+	unloadCurrentProject: (doNotShowNotification, doNotAffectAtom) ->
+		return unless @checkIfInProject false
+		@projectRingView.destroy() if @projectRingView
+		unless doNotAffectAtom
+			try
+				atom.packages.getLoadedPackage('tree-view')?.mainModule?.treeView?.detach?()
+			catch
+			@currentlySettingProjectRootDirectories = true
+			atom.project.setPaths []
+			@currentlySettingProjectRootDirectories = false
+		@currentProjectState = undefined
+		@projectRingNotification.warn 'No project has been loaded' unless doNotShowNotification
 
-    addFilesToProject: ->
-        return unless @checkIfInProject()
-        @loadProjectRingBufferSelectView()
-        unless @projectRingBufferSelectView.isVisible()
-            bufferPathsToOfferForAddition = []
-            buffersOfCurrentProject = @getProjectState().openBufferPaths.map (openBufferPath) -> openBufferPath.toLowerCase()
-            (Object.keys(@statesCache).filter (projectPath) =>
-                not @getProjectState(projectPath).isIgnored and
-                projectPath isnt getProjectPathAsKey()).forEach (projectPath) =>
-                    projectState = @getProjectState projectPath
-                    (projectState.openBufferPaths.filter (openBufferPath) ->
-                        openBufferPathProxy = openBufferPath.toLowerCase()
-                        openBufferPathProxy not in buffersOfCurrentProject and
-                        not (bufferPathsToOfferForAddition.some (bufferPathSpec) ->
-                            bufferPathSpec.path.toLowerCase() is openBufferPathProxy)).forEach (openBufferPath) =>
-                                description = openBufferPath
-                                if description.length > 40
-                                    description = '...' + description.substr description.length - 37
-                                bufferPathsToOfferForAddition.push title: projectState.alias, description: description, path: openBufferPath
-            (atom.project.buffers.filter (buffer) ->
-                bufferPathProxy = buffer.file?.path.toLowerCase()
-                buffer.file and
-                bufferPathProxy not in buffersOfCurrentProject and
-                not (bufferPathsToOfferForAddition.some (bufferPathSpec) ->
-                    bufferPathSpec.path.toLowerCase() is bufferPathProxy)).forEach (buffer) ->
-                        description = buffer.file.path
-                        description = '...' + description.substr description.length - 37 if description.length > 40
-                        bufferPathsToOfferForAddition.push title: 'Not In Project', description: description, path: buffer.file.path
-            bufferPathsToOfferForAddition.sort (bufferPathSpec1, bufferPathSpec2) ->
-                if bufferPathSpec1.title is 'Not In Project' and bufferPathSpec2.title is 'Not In Project'
-                    return bufferPathSpec1.title.toLowerCase() <= bufferPathSpec2.title.toLowerCase()
-                return true if bufferPathSpec1.title is 'Not In Project'
-                return false if bufferPathSpec2.title is 'Not in Project'
-                bufferPathSpec1.title.toLowerCase() <= bufferPathSpec2.title.toLowerCase()
-            @projectRingBufferSelectView.attach { viewMode: 'add', confirmValue: 'Add' }, bufferPathsToOfferForAddition
+	deleteProjectRing: ->
+		return unless lib.getProjectRingId() and not /^\s*$/.test lib.getProjectRingId()
+		@projectRingView.destroy() if @projectRingView
+		csonFilePath = lib.getCSONFilePath()
+		_fs = require 'fs'
+		_fs.unlinkSync csonFilePath if _fs.existsSync csonFilePath
+		@setProjectRing 'default'
+		@currentProjectState = undefined
+		lib.updateDefaultProjectConfiguration '', [ '' ]
+		@projectRingNotification.notify 'All project ring data has been deleted'
 
-    banFilesFromProject: ->
-        return unless @checkIfInProject()
-        @loadProjectRingBufferSelectView()
-        unless @projectRingBufferSelectView.isVisible()
-            bufferPathsToOfferForBanning = []
-            (atom.project.buffers.filter (buffer) ->
-                buffer.file and
-                not (bufferPathsToOfferForBanning.some (bufferPathSpec) ->
-                    bufferPathSpec.path.toLowerCase() is buffer.file.path.toLowerCase())).forEach (buffer) ->
-                        description = buffer.file.path
-                        description = '...' + description.substr description.length - 37 if description.length > 40
-                        bufferPathsToOfferForBanning.push title: require('path').basename buffer.file.path, description: description, path: buffer.file.path
-            bufferPathsToOfferForBanning.sort()
-            @projectRingBufferSelectView.attach { viewMode: 'ban', confirmValue: 'Ban' }, bufferPathsToOfferForBanning
+	handleProjectRingViewKeydown: (keydownEvent, viewModeParameters, selectedItem) ->
+		return unless keydownEvent and selectedItem
+		# alt-shift-delete
+		if viewModeParameters.viewMode is 'project' and
+		keydownEvent.altKey and
+		keydownEvent.shiftKey and
+		keydownEvent.which is 46
+			@processProjectRingViewProjectDeletion selectedItem.data
 
-    alwaysOpenFiles: ->
-        return unless @checkIfInProject()
-        @loadProjectRingBufferSelectView()
-        unless @projectRingBufferSelectView.isVisible()
-            bufferPathsToOfferForAlwaysOpening = []
-            (atom.project.buffers.filter (buffer) ->
-                buffer.file and
-                not (bufferPathsToOfferForAlwaysOpening.some (bufferPathSpec) ->
-                    bufferPathSpec.path.toLowerCase() is buffer.file.path.toLowerCase())).forEach (buffer) ->
-                        description = buffer.file.path
-                        description = '...' + description.substr description.length - 37 if description.length > 40
-                        bufferPathsToOfferForAlwaysOpening.push
-                            title: require('path').basename buffer.file.path
-                            description: description
-                            path: buffer.file.path
-            bufferPathsToOfferForAlwaysOpening.sort()
-            @projectRingBufferSelectView.attach { viewMode: 'always-open', confirmValue: 'Always Open' }, bufferPathsToOfferForAlwaysOpening
+	processProjectRingViewProjectDeletion: (projectState) ->
+		return unless projectState and @statesCache
+		projectState = @getProjectState projectState.key
+		return unless projectState
+		@projectRingView.destroy() if @projectRingView
+		if projectState.key is @currentProjectState?.key
+			@currentProjectState = undefined
+		@unsetProjectState projectState.key
+		@saveProjectRing()
+		lib.updateDefaultProjectConfiguration '', Object.keys(@statesCache), true, projectState.key
+		@projectRingNotification.notify 'Project "' + projectState.key + '" has been deleted'
 
-    delete: ->
-        @projectRingView.destroy() if @projectRingView
-        return unless getProjectRootPath() and not /^\s*$/.test getProjectRootPath()
-        @inProject = false if @inProject
-        atomProjectPathAsKeyProxy = getProjectPathAsKey()
-        alias = @getProjectState()?.alias
-        @unsetProjectState()
-        @saveProjectRing()
-        @projectRingNotification.notify 'Project "' + alias + '" has been deleted' if alias
+	handleProjectRingViewSelection: (viewModeParameters, data) ->
+		switch viewModeParameters.viewMode
+			when 'project'
+				@processProjectRingViewProjectSelection projectState: data, openProjectFilesOnly: viewModeParameters.openProjectFilesOnly
+			else break
 
-    unlink: (doNotShowNotification, doNotAffectAtom) ->
-        @projectRingView.destroy() if @projectRingView
-        return unless getProjectRootPath() and not /^\s*$/.test getProjectRootPath()
-        unless doNotAffectAtom
-            (atom.packages.getLoadedPackage 'tree-view')?.mainModule.treeView?.detach?()
-            atom.project.setPaths []
-        @inProject = false
-        @projectRingNotification.notify 'No project is currently loaded' unless doNotShowNotification
+	closeProjectBuffersOnBufferCreate: ->
+		filePathsToAlwaysOpen = @getProjectState(lib.defaultProjectCacheKey).files.open.map (openFilePath) -> openFilePath.toLowerCase()
+		projectRelatedBufferPaths = {}
+		(Object.keys(@statesCache).filter (key) -> key isnt lib.defaultProjectCacheKey).forEach (key) =>
+			@getProjectState(key).files.open.forEach (openFilePath) -> projectRelatedBufferPaths[openFilePath.toLowerCase()] = null
+		projectRelatedBufferPaths = Object.keys projectRelatedBufferPaths
+		projectUnrelatedBufferPaths = []
+		(atom.project.buffers.filter (buffer) -> buffer.file).forEach (buffer) =>
+				bufferFilePathProxy = buffer.file.path.toLowerCase()
+				projectUnrelatedBufferPaths.push bufferFilePathProxy unless bufferFilePathProxy in projectRelatedBufferPaths
+		(
+			atom.project.buffers.filter (buffer) ->
+				bufferPath = buffer.file?.path.toLowerCase()
+				bufferPath and
+				bufferPath not in filePathsToAlwaysOpen and
+				bufferPath not in projectUnrelatedBufferPaths
+		).forEach (buffer) ->
+			lib.offDestroyedBuffer buffer
+			lib.onceSavedBuffer buffer, -> buffer.destroy()
+			buffer.save()
 
-    setProjectPath: (replace) ->
-        @projectRingView.destroy() if @projectRingView
-        return if replace and not @checkIfInProject()
-        dialog = (require 'remote').require 'dialog'
-        dialog.showOpenDialog
-            title: (if not replace then 'Open' else 'Replace with')
-            properties: [ 'openDirectory', 'createDirectory' ],
-            (pathsToOpen) =>
-                pathsToOpen = pathsToOpen or []
-                return unless pathsToOpen.length
-                unless replace
-                    @unlink true
-                    @currentlySettingProjectPath = true
-                    atom.project.once 'path-changed', =>
-                        @currentlySettingProjectPath = false
-                        return unless getProjectRootPath() and not /^\s*$/.test getProjectRootPath()
-                        unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
-                            @runFilePatternHiding()
-                            (atom.packages.getLoadedPackage 'tree-view')?.mainModule.treeView?.show?()
-                        @projectRingNotification.notify 'The project path has been set to "' + getProjectRootPath() + '"'
-                    atom.project.setPaths [ pathsToOpen[0] ]
-                    @processProjectRingViewProjectSelection
-                        projectState: @getProjectState getProjectPathAsKey pathsToOpen[0]
-                        isAsynchronousProjectPathChange: true
-                    return
-                currentProjectState = @getProjectState()
-                if currentProjectState
-                    newProjectState = @setProjectState pathsToOpen[0], currentProjectState
-                    newProjectState.projectPath = pathsToOpen[0]
-                    if newProjectState.treeViewState
-                        oldPathRE = new RegExp '^' + (@turnToPathRegExp getProjectRootPath()), 'i'
-                        if newProjectState.treeViewState.selectedPath and
-                        not /^\s*$/.test newProjectState.treeViewState.selectedPath
-                            newProjectState.treeViewState.selectedPath =
-                                newProjectState.treeViewState.selectedPath.replace oldPathRE, pathsToOpen[0]
-                        if newProjectState.openBufferPaths.length
-                            newOpenBufferPaths = newProjectState.openBufferPaths.map (openBufferPath) ->
-                                openBufferPath.replace oldPathRE, pathsToOpen[0]
-                            newProjectState.openBufferPaths = newOpenBufferPaths
-                    @unsetProjectState()
-                atom.project.setPaths [ pathsToOpen[0] ]
-                if not newProjectState
-                    @add()
-                else
-                    @saveProjectRing()
-                @processProjectRingViewProjectSelection projectState: @getProjectState pathsToOpen[0]
+	processProjectRingViewProjectSelection: (options) ->
+		options = options or {}
+		return unless @getProjectState options.projectState?.key
+		_fs = require 'fs'
+		options.projectState.rootDirectories = options.projectState.rootDirectories.filter (filePath) -> _fs.existsSync filePath
+		options.projectState.files.open = options.projectState.files.open.filter (filePath) -> _fs.existsSync filePath
+		options.projectState.files.banned = options.projectState.files.banned.filter (filePath) -> _fs.existsSync filePath
+		@saveProjectRing()
+		oldKey = @currentProjectState?.key
+		unless options.openProjectFilesOnly
+			unless \
+				options.projectState.key is oldKey and
+				not options.isAsynchronousProjectPathChange
+					@currentlySettingProjectRootDirectories = true
+					treeView = atom.packages.getLoadedPackage 'tree-view'
+					lib.onceChangedPaths =>
+						@currentlySettingProjectRootDirectories = false
+						treeView?.mainModule.treeView?.show?()
+						setTimeout (=>
+							treeView?.mainModule.treeView?.updateRoots? options.projectState.treeViewState.directoryExpansionStates or null
+							@runFilePatternHiding()
+						), 0
+						@currentProjectState = options.projectState
+						@projectRingNotification.notify 'Project "' + options.projectState.key + '" has been loaded'
+					atom.project.setPaths options.projectState.rootDirectories
+			else
+				@currentProjectState = options.projectState
+				@projectRingNotification.notify 'Project "' + options.projectState.key + '" has been loaded'
+			if atom.config.get 'project-ring.makeTheCurrentProjectTheDefaultAtStartUp'
+				lib.setDefaultProjectToLoadAtStartUp options.projectState.key
+		if \
+			not options.openProjectFilesOnly and
+			oldKey and
+			(oldKey isnt options.projectState.key or options.isAsynchronousProjectPathChange) and
+			atom.project.buffers.length and
+			atom.config.get 'project-ring.closePreviousProjectFiles'
+				@closeProjectBuffersOnBufferCreate()
+		removeEmptyBuffers = (bufferCreated) =>
+			return if bufferCreated and not bufferCreated.file
+			setTimeout (->
+				(atom.project.buffers.filter (buffer) -> not buffer.file and buffer.cachedText is '').forEach (buffer) ->
+					return if \
+						bufferCreated is buffer or
+						(atom.project.buffers.length is 1 and
+						 not atom.project.buffers[0].file and
+						 atom.project.buffers[0].cachedText is '' and
+						 atom.config.get 'core.destroyEmptyPanes')
+					lib.offDestroyedBuffer buffer
+					buffer.destroy()
+			), @projectRingInvariantState.emptyBufferDestroyDelayOnStartup
+		filesCurrentlyOpen = @getOpenFilePaths().map (filePath) -> filePath.toLowerCase()
+		filesToOpen = options.projectState.files.open.filter (filePath) -> filePath.toLowerCase() not in filesCurrentlyOpen
+		if \
+			(options.openProjectFilesOnly or
+			 not atom.config.get 'project-ring.doNotSaveAndRestoreOpenProjectFiles') and
+			filesToOpen.length
+				lib.onceAddedBuffer removeEmptyBuffers
+				lib.openFile filePath for filePath in filesToOpen
+		else if atom.config.get 'project-ring.closePreviousProjectFiles'
+			removeEmptyBuffers()
 
-    deleteProjectRing: ->
-        return unless @projectRingId and not /^\s*$/.test @projectRingId
-        @projectRingView.destroy() if @projectRingView
-        pathFilePath = @getPathFilePath()
-        csonFilePath = @getCSONFilePath()
-        _fs = require 'fs'
-        _fs.unlinkSync csonFilePath if _fs.existsSync csonFilePath
-        _fs.unlinkSync pathFilePath if _fs.existsSync pathFilePath
-        @setProjectRing 'default'
-        @inProject = false
-        @projectRingNotification.notify 'All project ring data has been deleted'
+	handleProjectRingInputViewInput: (viewModeParameters, data) ->
+		switch viewModeParameters.viewMode
+			when 'project' then @processProjectRingInputViewProjectKey data, viewModeParameters.renameOnly
+			else break
 
-    handleProjectRingViewKeydown: (keydownEvent, viewModeParameters, selectedItem) ->
-        return unless keydownEvent and selectedItem
-        # alt-shift-delete
-        if viewModeParameters.viewMode is 'project' and
-        keydownEvent.altKey and
-        keydownEvent.shiftKey and
-        keydownEvent.which is 46
-            @processProjectRingViewProjectDeletion selectedItem.data
+	processProjectRingInputViewProjectKey: (key, renameOnly) ->
+		return unless key and not /^\s*$/.test key
+		@add key: key, renameOnly: renameOnly
 
-    processProjectRingViewProjectDeletion: (projectState) ->
-        return unless projectState and @statesCache
-        projectStateProjectPathAsKeyProxy = getProjectPathAsKey projectState.projectPath
-        projectState = @getProjectState projectStateProjectPathAsKeyProxy
-        return unless projectState
-        @projectRingView.destroy() if @projectRingView
-        if \
-            getProjectRootPath() and
-            projectState and
-            projectStateProjectPathAsKeyProxy is getProjectPathAsKey()
-                @inProject = false
-        @unsetProjectState projectStateProjectPathAsKeyProxy
-        @saveProjectRing()
-        @projectRingNotification.notify 'Project "' + projectState.alias + '" has been deleted' if projectState.alias
+	handleProjectRingBufferSelectViewSelection: (viewModeParameters, data) ->
+		switch viewModeParameters.viewMode
+			when 'add' then @processProjectRingFileSelectViewSelection data, true
+			when 'ban' then @processProjectRingFileSelectViewSelection data, false, true
+			when 'always-open' then @processProjectRingFileSelectViewSelection data, false, false, true
+			else break
 
-    handleProjectRingViewSelection: (viewModeParameters, data) ->
-        switch viewModeParameters.viewMode
-            when 'project'
-                @processProjectRingViewProjectSelection projectState: data, openProjectBuffersOnly: viewModeParameters.openProjectBuffersOnly
-            else break
+	processProjectRingFileSelectViewSelection: (paths, add, ban, alwaysOpen) ->
+		return unless paths and paths.length and (if add or ban then @checkIfInProject false else true)
+		if add
+			paths.forEach (path) => @addOpenFilePathToProject path, true
+		else if ban
+			paths.forEach (path) => @banOpenFilePathFromProject path
+		else if alwaysOpen
+			paths.forEach (path) => @alwaysOpenFilePath path
 
-    closeProjectBuffersOnBufferCreate: () ->
-        bufferPathsToAlwaysOpen =
-            @getProjectState(defaultProjectCacheKey).openBufferPaths.map (openBufferPath) -> openBufferPath.toLowerCase()
-        projectRelatedBufferPaths = {}
-        (Object.keys(@statesCache).filter (projectPath) -> projectPath isnt defaultProjectCacheKey).forEach (projectPath) =>
-            @getProjectState(projectPath).openBufferPaths.forEach (openBufferPath) ->
-                projectRelatedBufferPaths[openBufferPath.toLowerCase()] = null
-        projectRelatedBufferPaths = Object.keys projectRelatedBufferPaths
-        projectUnrelatedBufferPaths = []
-        (atom.project.buffers.filter (buffer) -> buffer.file).forEach (buffer) =>
-                bufferFilePathProxy = buffer.file.path.toLowerCase()
-                projectUnrelatedBufferPaths.push bufferFilePathProxy unless bufferFilePathProxy in projectRelatedBufferPaths
-        (atom.project.buffers.filter (buffer) ->
-            bufferPath = buffer.file?.path.toLowerCase()
-            bufferPath and
-            bufferPath not in bufferPathsToAlwaysOpen and
-            bufferPath not in projectUnrelatedBufferPaths).forEach (buffer) ->
-                    buffer.off 'destroyed.project-ring'
-                    buffer.once 'saved', -> buffer.destroy()
-                    buffer.save()
-
-    processProjectRingViewProjectSelection: (options) ->
-        options = options or {}
-        return unless options.projectState
-        projectStateProjectPathAsKeyProxy = getProjectPathAsKey options.projectState.projectPath
-        _fs = require 'fs'
-        unless _fs.existsSync options.projectState.projectPath
-            @unsetProjectState projectStateProjectPathAsKeyProxy
-            @saveProjectRing()
-            return
-        projectState = @getProjectState projectStateProjectPathAsKeyProxy
-        unless projectState.openBufferPaths
-            projectState.openBufferPaths = []
-            options.projectState.openBufferPaths = []
-        unless projectState.bannedBufferPaths
-            projectState.bannedBufferPaths = []
-            options.projectState.bannedBufferPaths = []
-        atomProjectPathAsKeyProxy = getProjectPathAsKey()
-        oldProjectPath = atomProjectPathAsKeyProxy
-        unless options.openProjectBuffersOnly
-            unless \
-                projectStateProjectPathAsKeyProxy is atomProjectPathAsKeyProxy and
-                not options.isAsynchronousProjectPathChange
-                    @currentlySettingProjectPath = true
-                    treeView = atom.packages.getLoadedPackage 'tree-view'
-                    atom.project.once 'path-changed', =>
-                        @currentlySettingProjectPath = false
-                        return unless getProjectRootPath() and not /^\s*$/.test getProjectRootPath()
-                        unless atom.config.get 'project-ring.skipOpeningTreeViewWhenChangingProjectPath'
-                            treeView?.mainModule.treeView?.show?()
-                            setTimeout (
-                                =>
-                                    treeView?.mainModule.treeView?.updateRoots? \
-                                        options.projectState.treeViewState.directoryExpansionStates[0] or null
-                                    @runFilePatternHiding()
-                            ),
-                            0
-                        @inProject = true
-                        @projectRingNotification.notify 'Project "' + options.projectState.alias + '" has been loaded'
-                    atom.project.setPaths [ options.projectState.projectPath ]
-                    atomProjectPathAsKeyProxy = projectStateProjectPathAsKeyProxy
-            else
-                @inProject = true
-                @projectRingNotification.notify 'Project "' + options.projectState.alias + '" has been loaded'
-            if atom.config.get 'project-ring.makeTheCurrentProjectTheDefaultOnStartUp'
-                atom.config.set 'project-ring.projectToLoadOnStartUp', options.projectState.alias
-        validOpenBufferPaths = options.projectState.openBufferPaths.filter (openBufferPath) -> _fs.existsSync(openBufferPath)
-        if \
-            not options.openProjectBuffersOnly and
-            oldProjectPath and
-            (oldProjectPath isnt atomProjectPathAsKeyProxy or options.isAsynchronousProjectPathChange) and
-            atom.project.buffers.length and
-            atom.config.get 'project-ring.closePreviousProjectFiles'
-                @closeProjectBuffersOnBufferCreate()
-        removeEmptyBuffers = (bufferCreated) =>
-            return unless not bufferCreated or bufferCreated.file
-            atom.project.off 'buffer-created.project-ring-remove-empty'
-            setTimeout (
-                    ->
-                        (atom.project.buffers.filter (buffer) ->
-                            not buffer.file and buffer.cachedText is '').forEach (buffer) ->
-                                return if \
-                                    bufferCreated is buffer or
-                                    (atom.project.buffers.length is 1 and
-                                     not atom.project.buffers[0].file and
-                                     atom.project.buffers[0].cachedText is '' and
-                                     atom.config.get 'core.destroyEmptyPanes')
-                                buffer.off 'destroyed.project-ring'
-                                buffer.destroy()
-                ),
-                @projectRingInvariantState.emptyBufferDestroyDelayOnStartup
-        if \
-            (options.openProjectBuffersOnly or
-             not atom.config.get 'project-ring.doNotSaveAndRestoreOpenProjectFiles') and
-            validOpenBufferPaths.length
-                atom.project.on 'buffer-created.project-ring-remove-empty', removeEmptyBuffers
-                unless \
-                    options.openProjectBuffersOnly or
-                    options.projectState.openBufferPaths.length is validOpenBufferPaths.length
-                        @getProjectState(options.projectState.projectPath).openBufferPaths = validOpenBufferPaths
-                        @saveProjectRing()
-                atom.workspace.openSync bufferPath for bufferPath in validOpenBufferPaths
-        else if atom.config.get 'project-ring.closePreviousProjectFiles'
-            removeEmptyBuffers()
-
-    handleProjectRingInputViewInput: (viewModeParameters, data) ->
-        switch viewModeParameters.viewMode
-            when 'project' then @processProjectRingInputViewProjectAlias data, viewModeParameters.renameOnly
-            else break
-
-    processProjectRingInputViewProjectAlias: (alias, renameOnly) ->
-        return unless alias and not /^\s*$/.test alias
-        @add alias: alias, renameOnly: renameOnly
-
-    handleProjectRingBufferSelectViewSelection: (viewModeParameters, data) ->
-        switch viewModeParameters.viewMode
-            when 'add' then @processProjectRingBufferSelectViewSelection data, true
-            when 'ban' then @processProjectRingBufferSelectViewSelection data, false, true
-            when 'always-open' then @processProjectRingBufferSelectViewSelection data, false, false, true
-            else break
-
-    processProjectRingBufferSelectViewSelection: (paths, add, ban, alwaysOpen) ->
-        return unless paths and paths.length and (if add or ban then @checkIfInProject() else true)
-        if add
-            paths.forEach (path) => @addOpenBufferPathToProject path, true
-        else if ban
-            paths.forEach (path) => @banOpenBufferPathFromProject path
-        else if alwaysOpen
-            paths.forEach (path) => @alwaysOpenBufferPath path
-
-    copy: (copyKey) ->
-        currentyProjectState = @getProjectState()
-        return unless \
-            @checkIfInProject() and
-            not /^\s*$/.test(getProjectRootPath()) and
-            currentyProjectState?[copyKey]
-        try
-            require('clipboard').writeText currentyProjectState[copyKey]
-            @projectRingNotification.notify 'The requested project attribute has been copied to the system\'s clipboard'
-        catch error
-            @projectRingNotification.alert error
-            return
-
-    editKeyBindings: ->
-        _path = require 'path'
-        keyBindingsFilePath = _path.join atom.packages.getLoadedPackage('project-ring').path, 'keymaps', 'project-ring.cson'
-        _fs = require 'fs'
-        unless _fs.existsSync keyBindingsFilePath
-            @projectRingNotification.alert 'Could not find the default Project Ring key bindings file.'
-            return
-        atom.workspace.openSync keyBindingsFilePath
+	editKeyBindings: ->
+		_path = require 'path'
+		keyBindingsFilePath = _path.join atom.packages.getLoadedPackage('project-ring').path, 'keymaps', 'project-ring.cson'
+		_fs = require 'fs'
+		unless _fs.existsSync keyBindingsFilePath
+			@projectRingNotification.alert 'Could not find the default Project Ring key bindings file'
+			return
+		lib.openFile keyBindingsFilePath

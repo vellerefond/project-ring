@@ -9,11 +9,11 @@ describe "ProjectRing", ->
   activationPromise = null
 
   beforeEach ->
-    activationPromise = atom.packages.activatePackage('project-ring')
+	activationPromise = atom.packages.activatePackage('project-ring')
 
   describe "when the project-ring:toggle event is triggered", ->
-    it "reports that it need a proper spec", ->
-      waitsForPromise ->
-        activationPromise
-      runs ->
-        alert 'I need a proper spec!'
+	it "reports that it need a proper spec", ->
+	  waitsForPromise ->
+		activationPromise
+	  runs ->
+		alert 'I need a proper spec!'

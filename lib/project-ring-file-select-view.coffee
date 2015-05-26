@@ -3,7 +3,7 @@
 module.exports =
 class ProjectRingBufferSelectView extends View
 	@content: ->
-		@div class: 'project-ring-buffer-select overlay from-top', =>
+		@div class: 'project-ring-file-select overlay from-top', =>
 			@div class: 'controls', =>
 				@input type: 'button', class: 'right confirm', value: ''
 				@input type: 'button', class: 'right cancel', value: 'Cancel'
@@ -14,8 +14,10 @@ class ProjectRingBufferSelectView extends View
 	initialize: (projectRing) ->
 		@projectRing = @projectRing or projectRing
 
-	getEntryView: ({title, description, path}) ->
+	getEntryView: ({ title, description, path }) ->
 		$entry = $('<div></div>', class: 'entry')
+		$checkAll = $('<input />', type: 'checkbox', 'data-path': path)
+
 		$entry.append $('<input />', type: 'checkbox', 'data-path': path).on 'click', (event) ->
 			event.preventDefault()
 			event.returnValue = false
@@ -31,7 +33,7 @@ class ProjectRingBufferSelectView extends View
 	attach: (viewModeParameters, items) ->
 		@viewModeParameters = viewModeParameters
 		@self = atom.workspace.addModalPanel item: @
-		$content = $(atom.views.getView atom.workspace).find '.project-ring-buffer-select'
+		$content = $(atom.views.getView atom.workspace).find '.project-ring-file-select'
 		unless @isInitialized
 			$controls = $content.find('.controls')
 			$controls.find('input:button.confirm').on 'click', => @confirmed()
@@ -52,14 +54,13 @@ class ProjectRingBufferSelectView extends View
 
 	confirmed: ->
 		bufferPaths = []
-		$(atom.views.getView atom.workspace).find('.project-ring-buffer-select .entries input:checkbox.checked')\
-			.each (index, element) ->
+		$(atom.views.getView atom.workspace).find('.project-ring-file-select .entries input:checkbox.checked').each (index, element) ->
 				bufferPaths.push $(element).attr 'data-path'
 		@destroy()
 		@projectRing.handleProjectRingBufferSelectViewSelection @viewModeParameters, bufferPaths
 
 	setAllEntriesSelected: (allSelected) ->
-		$checkboxes = $(atom.views.getView atom.workspace).find '.project-ring-buffer-select .entries input:checkbox'
+		$checkboxes = $(atom.views.getView atom.workspace).find '.project-ring-file-select .entries input:checkbox'
 		if allSelected
 			$checkboxes.removeClass('checked').addClass 'checked'
 		else

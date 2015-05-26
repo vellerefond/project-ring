@@ -13,16 +13,12 @@
 		float: left;
 		font-size: 15px;
 	}
-
-	.project-ring-item-description {
-		float: right;
-		font-size: 12px;
-	}
 }
 
 .project-ring-input {}
 
-.project-ring-buffer-select {
+.project-ring-file-select,
+.project-ring-project-select {
 	.controls {
 		min-height: 32px;
 		margin-bottom: 5px;
@@ -65,30 +61,30 @@
 		}
 
 		input[type='checkbox'] {
-		    -webkit-font-smoothing: antialiased;
-		    text-rendering: optimizeSpeed;
-		    width: 15px;
-		    height: 15px;
-		    margin: 0px;
-		    display: block;
-		    float: left;
-		    position: relative;
-		    cursor:pointer;
+			-webkit-font-smoothing: antialiased;
+			text-rendering: optimizeSpeed;
+			width: 15px;
+			height: 15px;
+			margin: 0px;
+			display: block;
+			float: left;
+			position: relative;
+			cursor:pointer;
 		}
 
 		input[type='checkbox']:after {
-		    content:"";
-		    vertical-align: middle;
-		    text-align: center;
-		    line-height: 15px;
-		    position: absolute;
-		    cursor: pointer;
-		    height: 15px;
-		    width: 15px;
-		    left: 0px;
-		    top: 0px;
-		    font-size:10px;
-		    background: #FDFDFD;
+			content:"";
+			vertical-align: middle;
+			text-align: center;
+			line-height: 15px;
+			position: absolute;
+			cursor: pointer;
+			height: 15px;
+			width: 15px;
+			left: 0px;
+			top: 0px;
+			font-size:10px;
+			background: #FDFDFD;
 		}
 
 		input[type='checkbox']:hover:after,
@@ -97,11 +93,11 @@
 		}
 
 		input[type='checkbox']:hover:after {
-		    color: #6A6A6A;
+			color: #6A6A6A;
 		}
 
 		input[type='checkbox'].checked:after {
-		    color: #000000;
+			color: #000000;
 		}
 
 		.title, .description {

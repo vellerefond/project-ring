@@ -1,58 +1,42 @@
 # See https://atom.io/docs/latest/creating-a-package#menus for more details
 'context-menu':
-    '.overlayer':
-        'Project Ring: Add To Ring': 'project-ring:add'
-        'Project Ring: Add To Ring With Alias': 'project-ring:add-as'
-        'Project Ring: Rename Project': 'project-ring:rename'
-        'Project Ring: Delete From Ring': 'project-ring:delete'
-        'Project Ring: Toggle Ring': 'project-ring:toggle'
-        'Project Ring: Open Project Files': 'project-ring:open-project-files'
-        'Project Ring: Add Current File To Current Project': 'project-ring:add-current-file-to-current-project'
-        'Project Ring: Add Files To Current Project': 'project-ring:add-files-to-current-project'
-        'Project Ring: Ban Current File From Project': 'project-ring:ban-current-file-from-current-project'
-        'Project Ring: Ban Files From Current Project': 'project-ring:ban-files-from-current-project'
-        'Project Ring: Always Open Current File': 'project-ring:always-open-current-file'
-        'Project Ring: Always Open Files': 'project-ring:always-open-files'
-        'Project Ring: Unlink Current Project': 'project-ring:unlink'
-        'Project Ring: Unlink And Set Project Path': 'project-ring:set-project-path'
-        'Project Ring: Delete Current Project Ring Data': 'project-ring:delete-project-ring'
-        'Project Ring: Copy Project Alias': 'project-ring:copy-project-alias'
-        'Project Ring: Copy Project Path': 'project-ring:copy-project-path'
-        'Project Ring: Move Project Path': 'project-ring:move-project-path'
-        'Project Ring: Edit Key Bindings': 'project-ring:edit-key-bindings'
+	'.overlayer':
+		'Project Ring: Add Project': 'project-ring:add-project'
+		'Project Ring: Rename Current Project': 'project-ring:rename-current-project'
+		'Project Ring: Delete Current Project': 'project-ring:delete-current-project'
+		'Project Ring: Toggle Ring': 'project-ring:toggle'
+		'Project Ring: Open Project Files': 'project-ring:open-project-files'
+		'Project Ring: Add Current File To Current Project': 'project-ring:add-current-file-to-current-project'
+		'Project Ring: Add Files To Current Project': 'project-ring:add-files-to-current-project'
+		'Project Ring: Ban Current File From Project': 'project-ring:ban-current-file-from-current-project'
+		'Project Ring: Ban Files From Current Project': 'project-ring:ban-files-from-current-project'
+		'Project Ring: Always Open Current File': 'project-ring:always-open-current-file'
+		'Project Ring: Always Open Files': 'project-ring:always-open-files'
+		'Project Ring: Unload Current Project': 'project-ring:unload-current-project'
+		'Project Ring: Delete Current Project Ring Data': 'project-ring:delete-project-ring'
+		'Project Ring: Edit Key Bindings': 'project-ring:edit-key-bindings'
 
 'menu': [
-    {
-        'label': 'Packages'
-        'submenu': [
-            'label': 'Project Ring'
-            'submenu': [
-                { 'label': 'Add', 'command': 'project-ring:add' },
-                { 'label': 'Add As', 'command': 'project-ring:add-as' },
-                { 'label': 'Rename', 'command': 'project-ring:rename' },
-                { 'label': 'Delete', 'command': 'project-ring:delete' },
-                { 'label': 'Toggle', 'command': 'project-ring:toggle' },
-                { 'label': 'Open Project Files', 'command': 'project-ring:open-project-files' },
-                {
-                    'label': 'Add Current File To Current Project',
-                    'command': 'project-ring:add-current-file-to-current-project'
-                },
-                { 'label': 'Add Files To Current Project', 'command': 'project-ring:add-files-to-current-project' },
-                {
-                    'label': 'Ban Current File From Project',
-                    'command': 'project-ring:ban-current-file-from-current-project'
-                },
-                { 'label': 'Ban Files From Current Project', 'command': 'project-ring:ban-files-from-current-project' },
-                { 'label': 'Always Open Current File', 'command': 'project-ring:always-open-current-file' },
-                { 'label': 'Always Open Files', 'command': 'project-ring:always-open-files' },
-                { 'label': 'Unlink', 'command': 'project-ring:unlink' },
-                { 'label': 'Set Project Path', 'command': 'project-ring:set-project-path' },
-                { 'label': 'Delete Current Project Ring', 'command': 'project-ring:delete-project-ring' },
-                { 'label': 'Copy Project Alias', 'command': 'project-ring:copy-project-alias' },
-                { 'label': 'Copy Project Path', 'command': 'project-ring:copy-project-path' },
-                { 'label': 'Move Project Path', 'command': 'project-ring:move-project-path' },
-                { 'label': 'Edit Key Bindings', 'command': 'project-ring:edit-key-bindings' }
-            ]
-        ]
-    }
+	{
+		'label': 'Packages'
+		'submenu': [
+			'label': 'Project Ring'
+			'submenu': [
+				{ 'label': 'Add Project', 'command': 'project-ring:add-project' },
+				{ 'label': 'Rename Current Project', 'command': 'project-ring:rename-current-project' },
+				{ 'label': 'Delete Current Project', 'command': 'project-ring:delete-current-project' },
+				{ 'label': 'Toggle', 'command': 'project-ring:toggle' },
+				{ 'label': 'Open Project Files', 'command': 'project-ring:open-project-files' },
+				{ 'label': 'Add Current File To Current Project', 'command': 'project-ring:add-current-file-to-current-project' },
+				{ 'label': 'Add Files To Current Project', 'command': 'project-ring:add-files-to-current-project' },
+				{ 'label': 'Ban Current File From Project', 'command': 'project-ring:ban-current-file-from-current-project' },
+				{ 'label': 'Ban Files From Current Project', 'command': 'project-ring:ban-files-from-current-project' },
+				{ 'label': 'Always Open Current File', 'command': 'project-ring:always-open-current-file' },
+				{ 'label': 'Always Open Files', 'command': 'project-ring:always-open-files' },
+				{ 'label': 'Unload Current Project', 'command': 'project-ring:unload-current-project' },
+				{ 'label': 'Delete Current Project Ring', 'command': 'project-ring:delete-project-ring' },
+				{ 'label': 'Edit Key Bindings', 'command': 'project-ring:edit-key-bindings' }
+			]
+		]
+	}
 ]

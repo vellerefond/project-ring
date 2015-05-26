@@ -1,3 +1,13 @@
+###### 0.20.0 - Fixed the codebase to make it compatible with Atom's version 1.0 API
+* Rewritten all event handling code
+* Removed the ability to automatically load a project by opening it's root path (multiple root paths are now supported)
+* Changed a new configuration file format to support multiple root directories
+* Removed several minor and non important commands (Copy *, Set/Move Project Path)
+* Now all projects require a name when they are added
+* Removed the configuration option "Skip Opening Tree View When Changing Project Path"
+* Changed the configuration option "Project To Load At StartUp" to a list of available projects to chose from
+* Provided transitional code to go from the old project specification format to the new automatically
+
 ###### 0.19.6 - Code fixes to account for the new multi-root tree view behavior
 
 ###### 0.19.5 - Code fixes to conform with the new Atom API and correct the logic when restoring the Tree View state of a project
