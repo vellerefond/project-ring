@@ -1,9 +1,9 @@
 { $, View } = require 'atom-space-pen-views'
 
 module.exports =
-class ProjectRingFileSelectView extends View
+class ProjectRingProjectSelectView extends View
 	@content: ->
-		@div class: 'project-ring-file-select overlay from-top', =>
+		@div class: 'project-ring-project-select overlay from-top', =>
 			@div class: 'controls', =>
 				@input type: 'button', class: 'right confirm', value: ''
 				@input type: 'button', class: 'right cancel', value: 'Cancel'
@@ -14,11 +14,9 @@ class ProjectRingFileSelectView extends View
 	initialize: (projectRing) ->
 		@projectRing = @projectRing or projectRing
 
-	getEntryView: ({ title, description, path }) ->
+	getEntryView: (key) ->
 		$entry = $('<div></div>', class: 'entry')
-		$checkAll = $('<input />', type: 'checkbox', 'data-path': path)
-
-		$entry.append $('<input />', type: 'checkbox', 'data-path': path).on 'click', (event) ->
+		$entry.append $('<input />', type: 'checkbox', 'data-key': key).on 'click', (event) ->
 			event.preventDefault()
 			event.returnValue = false
 			$this = $ @
@@ -27,13 +25,12 @@ class ProjectRingFileSelectView extends View
 			else
 				$this.removeClass 'checked'
 			return event.returnValue
-		$entry.append($('<div></div>', class: 'title', text: title))
-		$entry.append($('<div></div>', class: 'description', text: description))
+		$entry.append($('<div></div>', class: 'title', text: key))
 
 	attach: (viewModeParameters, items) ->
 		@viewModeParameters = viewModeParameters
 		@self = atom.workspace.addModalPanel item: @
-		$content = $(atom.views.getView atom.workspace).find '.project-ring-file-select'
+		$content = $(atom.views.getView atom.workspace).find '.project-ring-project-select'
 		unless @isInitialized
 			$controls = $content.find('.controls')
 			$controls.find('input:button.confirm').on 'click', => @confirmed()
@@ -44,23 +41,23 @@ class ProjectRingFileSelectView extends View
 		$content.find('.controls .confirm').val @viewModeParameters.confirmValue
 		$entries = $content.find('.entries').empty()
 		unless items.length
-			$entries.append ($ '<div>There are no files available for opening.</div>').addClass 'empty'
+			$entries.append ($ '<div>There are no projects available for opening.</div>').addClass 'empty'
 			return
-		for { title, description, path } in items
-			$entries.append @getEntryView title: title, description: description, path: path
+		for key in items
+			$entries.append @getEntryView key
 
 	destroy: ->
 		@self.destroy()
 
 	confirmed: ->
-		bufferPaths = []
-		$(atom.views.getView atom.workspace).find('.project-ring-file-select .entries input:checkbox.checked').each (index, element) ->
-				bufferPaths.push $(element).attr 'data-path'
+		keys = []
+		$(atom.views.getView atom.workspace).find('.project-ring-project-select .entries input:checkbox.checked').each (index, element) ->
+			keys.push $(element).attr 'data-key'
 		@destroy()
-		@projectRing.handleProjectRingFileSelectViewSelection @viewModeParameters, bufferPaths
+		@projectRing.handleProjectRingProjectSelectViewSelection @viewModeParameters, keys
 
 	setAllEntriesSelected: (allSelected) ->
-		$checkboxes = $(atom.views.getView atom.workspace).find '.project-ring-file-select .entries input:checkbox'
+		$checkboxes = $(atom.views.getView atom.workspace).find '.project-ring-project-select .entries input:checkbox'
 		if allSelected
 			$checkboxes.removeClass('checked').addClass 'checked'
 		else

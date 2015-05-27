@@ -54,7 +54,7 @@ module.exports =
 				atom.config.observe lib.projectToLoadAtStartUpConfigurationKeyPath, (projectToLoadAtStartUp) =>
 					lib.setDefaultProjectToLoadAtStartUp  projectToLoadAtStartUp, true
 				return if projectKeyToLoadAtStartUp and @getProjectState projectKeyToLoadAtStartUp
-				@projectRingNotification.warn 'No project has been loaded'
+				@projectRingNotification.warn 'No project has been loaded' unless @projectLoadedByPathMatch
 			), 0
 		treeView = atom.packages.getLoadedPackage 'tree-view'
 		if treeView
@@ -86,6 +86,7 @@ module.exports =
 		atom.commands.add 'atom-workspace', "project-ring:rename-current-project", => @addAs true
 		atom.commands.add 'atom-workspace', "project-ring:toggle", => @toggle()
 		atom.commands.add 'atom-workspace', "project-ring:open-project-files", => @toggle true
+		atom.commands.add 'atom-workspace', "project-ring:open-multiple-projects", => @openMultipleProjects()
 		atom.commands.add 'atom-workspace', "project-ring:add-current-file-to-current-project", => @addOpenFilePathToProject null, true
 		atom.commands.add 'atom-workspace', "project-ring:add-files-to-current-project", => @addFilesToProject()
 		atom.commands.add 'atom-workspace', "project-ring:ban-current-file-from-current-project", => @banOpenFilePathFromProject()
@@ -149,8 +150,6 @@ module.exports =
 	setupAutomaticRootDirectoryAndTreeViewStateSaving: ->
 		lib.onChangedPaths (rootDirectories) =>
 			setTimeout (=>
-				if rootDirectories and rootDirectories.length and rootDirectories[0] is 'C:\\Users\\sdesyllas\\.atom\\packages\\project-ring\\lib'
-					;	#throw new Error('hi!')
 				return unless @checkIfInProject() and not @currentlySettingProjectRootDirectories
 				@add updateRootDirectoriesAndTreeViewStateOnly: true
 			), @projectRingInvariantState.changedPathsUpdateDelay
@@ -224,11 +223,11 @@ module.exports =
 					if @currentlySavingConfiguration.csonFile
 						@currentlySavingConfiguration.csonFile = false
 						return
-					@setProjectRing lib.getProjectRingId()
+					@setProjectRing lib.getProjectRingId(), undefined, true
 		else
 			_fs.unwatchFile csonFilePath if csonFilePath
 
-	setProjectRing: (id, projectKeyToLoad) ->
+	setProjectRing: (id, projectKeyToLoad, fromConfigWatchCallback) ->
 		@watchProjectRingConfiguration false
 		validConfigurationOptions = Object.keys @config
 		validConfigurationOptions.push lib.stripConfigurationKeyPath lib.projectToLoadAtStartUpConfigurationKeyPath
@@ -240,10 +239,10 @@ module.exports =
 			configurationChanged = true
 		atom.config.save() if configurationChanged
 		lib.setProjectRingId id
-		@loadProjectRing projectKeyToLoad
+		@loadProjectRing projectKeyToLoad, fromConfigWatchCallback
 		@watchProjectRingConfiguration true
 
-	loadProjectRing: (projectKeyToLoad) ->
+	loadProjectRing: (projectKeyToLoad, fromConfigWatchCallback) ->
 		return unless lib.getProjectRingId()
 		csonFilePath = lib.getCSONFilePath()
 		return unless csonFilePath
@@ -285,7 +284,17 @@ module.exports =
 					_fs.unlinkSync pathFilePath if _fs.existsSync pathFilePath
 				catch
 			# END: TRANSITIONAL CODE TO MIGRATE THE PROJECT SPECIFICATION TO THE NEW FORMAT
-			projectToLoad = @getProjectState projectKeyToLoad
+			projectToLoad = undefined
+			unless fromConfigWatchCallback
+				rootDirectoriesSpec = atom.project.getPaths().map((path) -> path.toLowerCase().trim()).sort().join ''
+				if rootDirectoriesSpec
+					for key in Object.keys @statesCache
+						continue if key is lib.defaultProjectCacheKey
+						if rootDirectoriesSpec is @getProjectState(key).rootDirectories.map((path) -> path.toLowerCase().trim()).sort().join ''
+							projectKeyToLoad = key
+							@projectLoadedByPathMatch = true
+							break
+				projectToLoad = @getProjectState projectKeyToLoad
 			if projectToLoad and not projectToLoad.isDefault
 				setTimeout (=>
 					@processProjectRingViewProjectSelection projectState: @getProjectState projectToLoad.key
@@ -295,14 +304,7 @@ module.exports =
 			@projectRingNotification.alert 'Could not load the project ring data for id: "' + lib.getProjectRingId() + '" (' + error + ')'
 			return
 		@setProjectState lib.defaultProjectCacheKey, defaultProjectState unless @getProjectState lib.defaultProjectCacheKey
-		fixedStatesCacheKeys = false
-		for stateKey in Object.keys @statesCache
-			stateKeyProxy = lib.getProjectKey stateKey
-			unless stateKey is stateKeyProxy
-				@setProjectState stateKeyProxy, @getProjectState stateKey
-				@unsetProjectState stateKey
-				fixedStatesCacheKeys = true
-		@saveProjectRing() if fixedStatesCacheKeys
+		@currentProjectState = @getProjectState @currentProjectState.key if @currentProjectState
 		lib.updateDefaultProjectConfiguration projectKeyToLoad, Object.keys @statesCache
 		lib.emitStatesCacheInitialized()
 
@@ -322,22 +324,22 @@ module.exports =
 	deactivate: ->
 		@projectRingView.destroy() if @projectRingView
 		@projectRingInputView.destroy() if @projectRingInputView
+		@projectRingProjectSelectView.destroy() if @projectRingProjectSelectView
 		@projectRingFileSelectView.destroy() if @projectRingFileSelectView
 
 	serialize: ->
 
 	loadProjectRingView: ->
-		unless @projectRingView
-			ProjectRingView = require './project-ring-view'
-			@projectRingView = new ProjectRingView @
+		@projectRingView = new (require './project-ring-view') @ unless @projectRingView
 
 	loadProjectRingInputView: ->
-		unless @projectRingInputView
-			@projectRingInputView = new (require './project-ring-input-view') @
+		@projectRingInputView = new (require './project-ring-input-view') @ unless @projectRingInputView
+
+	loadProjectRingProjectSelectView: ->
+		@projectRingProjectSelectView = new (require './project-ring-project-select-view') @ unless @projectRingProjectSelectView
 
 	loadProjectRingFileSelectView: ->
-		unless @projectRingFileSelectView
-			@projectRingFileSelectView = new (require './project-ring-file-select-view') @
+		@projectRingFileSelectView = new (require './project-ring-file-select-view') @ unless @projectRingFileSelectView
 
 	getOpenFilePaths: ->
 		unless atom.config.get 'project-ring.doNotSaveAndRestoreOpenProjectFiles'
@@ -492,6 +494,17 @@ module.exports =
 					then 'Load project...' + deleteKeyBinding
 					else 'Load files only...' + deleteKeyBinding
 			}, @statesCache, 'key'
+
+	openMultipleProjects: ->
+		return unless @statesCache
+		@loadProjectRingProjectSelectView()
+		unless @projectRingProjectSelectView.isVisible()
+			projectKeysToOfferForOpening = []
+			Object.keys(@statesCache).forEach (key) =>
+				currentProjectState = @checkIfInProject()
+				return if key is lib.defaultProjectCacheKey or (currentProjectState and key is currentProjectState.key)
+				projectKeysToOfferForOpening.push key
+			@projectRingProjectSelectView.attach { viewMode: 'open', confirmValue: 'Open' }, projectKeysToOfferForOpening.sort()
 
 	addFilesToProject: ->
 		return unless @checkIfInProject false
@@ -720,7 +733,35 @@ module.exports =
 		return unless key and not /^\s*$/.test key
 		@add key: key, renameOnly: renameOnly
 
-	handleProjectRingBufferSelectViewSelection: (viewModeParameters, data) ->
+	handleProjectRingProjectSelectViewSelection: (viewModeParameters, data) ->
+		switch viewModeParameters.viewMode
+			when 'open' then @processProjectRingProjectSelectViewSelection data, 'open'
+			else break
+
+	processProjectRingProjectSelectViewSelection: (keys, action) ->
+		return unless keys and keys.length
+		switch action
+			when 'open' then (
+				openInCurrentWindow = not @checkIfInProject()
+				didOpenOne = false
+				configurationSet = false
+				keys.forEach (key) =>
+					projectState = @getProjectState key
+					return unless projectState and not projectState.isDefault
+					if openInCurrentWindow
+						@processProjectRingViewProjectSelection projectState: projectState
+						openInCurrentWindow = false
+						didOpenOne = true
+					else if projectState.rootDirectories.length
+						atom.open pathsToOpen: projectState.rootDirectories, newWindow: true
+						didOpenOne = true
+					if didOpenOne and not configurationSet
+						if atom.config.get 'project-ring.makeTheCurrentProjectTheDefaultAtStartUp'
+							atom.config.set 'project-ring.makeTheCurrentProjectTheDefaultAtStartUp', false
+						configurationSet = true
+			) else break
+
+	handleProjectRingFileSelectViewSelection: (viewModeParameters, data) ->
 		switch viewModeParameters.viewMode
 			when 'add' then @processProjectRingFileSelectViewSelection data, true
 			when 'ban' then @processProjectRingFileSelectViewSelection data, false, true

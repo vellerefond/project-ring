@@ -6,6 +6,7 @@
 		'Project Ring: Delete Current Project': 'project-ring:delete-current-project'
 		'Project Ring: Toggle Ring': 'project-ring:toggle'
 		'Project Ring: Open Project Files': 'project-ring:open-project-files'
+		'Project Ring: Open Multiple Projects': 'project-ring:open-multiple-projects'
 		'Project Ring: Add Current File To Current Project': 'project-ring:add-current-file-to-current-project'
 		'Project Ring: Add Files To Current Project': 'project-ring:add-files-to-current-project'
 		'Project Ring: Ban Current File From Project': 'project-ring:ban-current-file-from-current-project'
@@ -27,6 +28,7 @@
 				{ 'label': 'Delete Current Project', 'command': 'project-ring:delete-current-project' },
 				{ 'label': 'Toggle', 'command': 'project-ring:toggle' },
 				{ 'label': 'Open Project Files', 'command': 'project-ring:open-project-files' },
+				{ 'label': 'Open Multiple Projects', 'command': 'project-ring:open-multiple-projects' },
 				{ 'label': 'Add Current File To Current Project', 'command': 'project-ring:add-current-file-to-current-project' },
 				{ 'label': 'Add Files To Current Project', 'command': 'project-ring:add-files-to-current-project' },
 				{ 'label': 'Ban Current File From Project', 'command': 'project-ring:ban-current-file-from-current-project' },
