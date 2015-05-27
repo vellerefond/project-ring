@@ -1,3 +1,5 @@
+###### 0.20.1 - Implemented sanity checks to guard against lingering, obsolete settings
+
 ###### 0.20.0 - Fixed the codebase to make it compatible with Atom's version 1.0 API
 * Rewritten all event handling code
 * Removed the ability to automatically load a project by opening it's root path (multiple root paths are now supported)
