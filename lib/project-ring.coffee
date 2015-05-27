@@ -51,7 +51,7 @@ module.exports =
 				filePathsToOpen = defaultProjectState.files.open.filter (filePathToOpen) -> filePathToOpen.toLowerCase() not in currentlyOpenFilePaths
 				lib.openFile filePath for filePath in filePathsToOpen
 			setTimeout (=>
-				atom.config.observe lib.defaultProjectConfigurationKeyPath, (projectToLoadAtStartUp) =>
+				atom.config.observe lib.projectToLoadAtStartUpConfigurationKeyPath, (projectToLoadAtStartUp) =>
 					lib.setDefaultProjectToLoadAtStartUp  projectToLoadAtStartUp, true
 				return if projectKeyToLoadAtStartUp and @getProjectState projectKeyToLoadAtStartUp
 				@projectRingNotification.warn 'No project has been loaded'
@@ -230,6 +230,15 @@ module.exports =
 
 	setProjectRing: (id, projectKeyToLoad) ->
 		@watchProjectRingConfiguration false
+		validConfigurationOptions = Object.keys @config
+		validConfigurationOptions.push lib.stripConfigurationKeyPath lib.projectToLoadAtStartUpConfigurationKeyPath
+		configurationChanged = false
+		projectRingConfigurationSettings = atom.config.settings['project-ring'] or {}
+		for configurationOption in Object.keys projectRingConfigurationSettings
+			continue if configurationOption in validConfigurationOptions
+			delete projectRingConfigurationSettings[configurationOption]
+			configurationChanged = true
+		atom.config.save() if configurationChanged
 		lib.setProjectRingId id
 		@loadProjectRing projectKeyToLoad
 		@watchProjectRingConfiguration true

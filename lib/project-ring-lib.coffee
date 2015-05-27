@@ -97,7 +97,7 @@ module.exports = Object.freeze
 	# Private Variables -- Start #
 	##############################
 
-	defaultProjectConfigurationKeyPath: 'project-ring.projectToLoadAtStartUp'
+	projectToLoadAtStartUpConfigurationKeyPath: 'project-ring.projectToLoadAtStartUp'
 	defaultProjectCacheKey: '<~>'
 
 	############################
@@ -113,6 +113,9 @@ module.exports = Object.freeze
 
 	getProjectRingId: ->
 		projectRingId or defaultProjectRingId
+
+	stripConfigurationKeyPath: (keyPath) ->
+		(keyPath or '').replace /^project-ring\./, ''
 
 	getConfigurationPath: ->
 		_path = require 'path'
@@ -146,7 +149,7 @@ module.exports = Object.freeze
 		return unless typeof key is 'string'
 		unless onlyUpdateSpecFile
 			try
-				atom.config.set @defaultProjectConfigurationKeyPath, key
+				atom.config.set @projectToLoadAtStartUpConfigurationKeyPath, key
 			catch error
 				return error
 		defaultProjectToLoadAtStartUpFilePath = @getDefaultProjectSpecFilePath()
@@ -178,7 +181,7 @@ module.exports = Object.freeze
 			selectedProject = projectKeyToLoadAtStartUp
 		selectedProject = '' unless selectedProject in allProjects
 		atom.config.setSchema \
-			@defaultProjectConfigurationKeyPath,
+			@projectToLoadAtStartUpConfigurationKeyPath,
 			{ type: 'string', default: selectedProject, enum: allProjects, description: 'The project name to load at startup' }
 		@setDefaultProjectToLoadAtStartUp selectedProject
 
