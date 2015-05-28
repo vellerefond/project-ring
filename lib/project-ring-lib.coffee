@@ -185,16 +185,20 @@ module.exports = Object.freeze
 			{ type: 'string', default: selectedProject, enum: allProjects, description: 'The project name to load at startup' }
 		@setDefaultProjectToLoadAtStartUp selectedProject
 
-	openFile: (filePathSpec, newWindow) ->
+	openFiles: (filePathSpec, newWindow) ->
 		filePathSpec = if filePathSpec instanceof Array then filePathSpec else [ filePathSpec ]
 		newWindow = if typeof newWindow is 'boolean' then newWindow else false
-		atom.open pathsToOpen: filePathSpec, newWindow: newWindow
+		if newWindow
+			atom.open pathsToOpen: filePathSpec, newWindow: true
+		else
+			atom.workspace.open filePath for filePath in filePathSpec
 
-	findInArray: (array, value, valueModFunc) ->
+	findInArray: (array, value, valueModFunc, extraModFuncArgs) ->
 		return undefined unless array instanceof Array
 		isValidFunc = typeof valueModFunc is 'function'
+		extraModFuncArgs = if extraModFuncArgs instanceof Array then extraModFuncArgs else []
 		for val in array
-			return val if (if isValidFunc then valueModFunc.call val else val) is value
+			return val if (if isValidFunc then valueModFunc.apply val, extraModFuncArgs else val) is value
 		undefined
 
 	filterFromArray: (array, value, valueModFunc) ->
@@ -212,8 +216,9 @@ module.exports = Object.freeze
 		return '' unless path
 		path.replace regExpEscapesRegExp, (match) -> '\\' + match
 
-	filePathIsInProject: (filePath) ->
-		for rootDirectory in @getProjectRootDirectories()
+	filePathIsInProject: (filePath, projectRootDirectories) ->
+		projectRootDirectories = if projectRootDirectories instanceof Array then projectRootDirectories else @getProjectRootDirectories()
+		for rootDirectory in projectRootDirectories
 			return true if new RegExp('^' + @turnToPathRegExp(rootDirectory), 'i').test(filePath)
 		false
 

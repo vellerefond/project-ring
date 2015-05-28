@@ -49,7 +49,7 @@ module.exports =
 			if defaultProjectState.files.open.length
 				currentlyOpenFilePaths = @getOpenFilePaths().map (openFilePath) -> openFilePath.toLowerCase()
 				filePathsToOpen = defaultProjectState.files.open.filter (filePathToOpen) -> filePathToOpen.toLowerCase() not in currentlyOpenFilePaths
-				lib.openFile filePath for filePath in filePathsToOpen
+				lib.openFiles filePath for filePath in filePathsToOpen
 			setTimeout (=>
 				atom.config.observe lib.projectToLoadAtStartUpConfigurationKeyPath, (projectToLoadAtStartUp) =>
 					lib.setDefaultProjectToLoadAtStartUp  projectToLoadAtStartUp, true
@@ -512,28 +512,25 @@ module.exports =
 		unless @projectRingFileSelectView.isVisible()
 			fileSpecsToOfferForAddition = []
 			openFilesOfCurrentProject = @currentProjectState.files.open.map (openFilePath) -> openFilePath.toLowerCase()
-			(
-				Object.keys(@statesCache).filter (key) =>
-					not @getProjectState(key).isDefault and
-					key isnt @currentProjectState.key
+			Object.keys(@statesCache).filter((key) =>
+				not @getProjectState(key).isDefault and
+				key isnt @currentProjectState.key
 			).forEach (key) =>
 				projectState = @getProjectState key
-				(
-					projectState.files.open.filter (openFilePath) ->
-						openFilePathProxy = openFilePath.toLowerCase()
-						openFilePathProxy not in openFilesOfCurrentProject and
-						not lib.findInArray fileSpecsToOfferForAddition, openFilePathProxy, -> @.path.toLowerCase()
+				projectState.files.open.filter((openFilePath) ->
+					openFilePathProxy = openFilePath.toLowerCase()
+					openFilePathProxy not in openFilesOfCurrentProject and
+					not lib.findInArray fileSpecsToOfferForAddition, openFilePathProxy, -> @.path.toLowerCase()
 				).forEach (openFilePath) =>
 					description = openFilePath
 					if description.length > 40
 						description = '...' + description.substr description.length - 37
 					fileSpecsToOfferForAddition.push title: key, description: description, path: openFilePath
-			(
-				atom.project.buffers.filter (buffer) ->
-					filePathProxy = buffer.file?.path.toLowerCase()
-					buffer.file and
-					filePathProxy not in openFilesOfCurrentProject and
-					not lib.findInArray fileSpecsToOfferForAddition, filePathProxy, -> @.path.toLowerCase()
+			atom.project.buffers.filter((buffer) ->
+				filePathProxy = buffer.file?.path.toLowerCase()
+				buffer.file and
+				filePathProxy not in openFilesOfCurrentProject and
+				not lib.findInArray fileSpecsToOfferForAddition, filePathProxy, -> @.path.toLowerCase()
 			).forEach (buffer) ->
 				description = buffer.file.path
 				description = '...' + description.substr description.length - 37 if description.length > 40
@@ -551,10 +548,9 @@ module.exports =
 		@loadProjectRingFileSelectView()
 		unless @projectRingFileSelectView.isVisible()
 			filePathsToOfferForBanning = []
-			(
-				atom.project.buffers.filter (buffer) ->
-					buffer.file and
-					not lib.findInArray filePathsToOfferForBanning, buffer.file.path.toLowerCase(), -> @.path.toLowerCase()
+			atom.project.buffers.filter((buffer) ->
+				buffer.file and
+				not lib.findInArray filePathsToOfferForBanning, buffer.file.path.toLowerCase(), -> @.path.toLowerCase()
 			).forEach (buffer) ->
 				description = buffer.file.path
 				description = '...' + description.substr description.length - 37 if description.length > 40
@@ -567,10 +563,9 @@ module.exports =
 		@loadProjectRingFileSelectView()
 		unless @projectRingFileSelectView.isVisible()
 			filePathsToOfferForAlwaysOpening = []
-			(
-				atom.project.buffers.filter (buffer) ->
-					buffer.file and
-					not lib.findInArray filePathsToOfferForAlwaysOpening, buffer.file.path.toLowerCase(), -> @.path.toLowerCase()
+			atom.project.buffers.filter((buffer) ->
+				buffer.file and
+				not lib.findInArray filePathsToOfferForAlwaysOpening, buffer.file.path.toLowerCase(), -> @.path.toLowerCase()
 			).forEach (buffer) ->
 				description = buffer.file.path
 				description = '...' + description.substr description.length - 37 if description.length > 40
@@ -639,7 +634,10 @@ module.exports =
 	handleProjectRingViewSelection: (viewModeParameters, data) ->
 		switch viewModeParameters.viewMode
 			when 'project'
-				@processProjectRingViewProjectSelection projectState: data, openProjectFilesOnly: viewModeParameters.openProjectFilesOnly
+				unless data.openInNewWindow
+					@processProjectRingViewProjectSelection projectState: data.projectState, openProjectFilesOnly: viewModeParameters.openProjectFilesOnly
+				else
+					@processProjectRingProjectSelectViewSelection [ data.projectState.key ], 'open'
 			else break
 
 	closeProjectBuffersOnBufferCreate: ->
@@ -649,15 +647,24 @@ module.exports =
 			@getProjectState(key).files.open.forEach (openFilePath) -> projectRelatedBufferPaths[openFilePath.toLowerCase()] = null
 		projectRelatedBufferPaths = Object.keys projectRelatedBufferPaths
 		projectUnrelatedBufferPaths = []
-		(atom.project.buffers.filter (buffer) -> buffer.file).forEach (buffer) =>
+		atom.project.buffers.filter((buffer) -> buffer.file).forEach (buffer) =>
 				bufferFilePathProxy = buffer.file.path.toLowerCase()
-				projectUnrelatedBufferPaths.push bufferFilePathProxy unless bufferFilePathProxy in projectRelatedBufferPaths
-		(
-			atom.project.buffers.filter (buffer) ->
-				bufferPath = buffer.file?.path.toLowerCase()
-				bufferPath and
-				bufferPath not in filePathsToAlwaysOpen and
-				bufferPath not in projectUnrelatedBufferPaths
+				bufferFilePathIsProjectUnrelated =
+					bufferFilePathProxy not in projectRelatedBufferPaths and
+					not lib.findInArray(
+						Object.keys(@statesCache).filter((key) -> key isnt lib.defaultProjectCacheKey),
+						bufferFilePathProxy,
+						(getProjectStateFunc) -> (
+							bufferFilePathProxy if lib.filePathIsInProject bufferFilePathProxy, getProjectStateFunc(@.toString()).rootDirectories
+						),
+						[ @getProjectState.bind @ ]
+					)
+				projectUnrelatedBufferPaths.push bufferFilePathProxy if bufferFilePathIsProjectUnrelated
+		atom.project.buffers.filter((buffer) ->
+			bufferPath = buffer.file?.path.toLowerCase()
+			bufferPath and
+			bufferPath not in filePathsToAlwaysOpen and
+			bufferPath not in projectUnrelatedBufferPaths
 		).forEach (buffer) ->
 			lib.offDestroyedBuffer buffer
 			lib.onceSavedBuffer buffer, -> buffer.destroy()
@@ -695,8 +702,9 @@ module.exports =
 				lib.setDefaultProjectToLoadAtStartUp options.projectState.key
 		if \
 			not options.openProjectFilesOnly and
-			oldKey and
-			(oldKey isnt options.projectState.key or options.isAsynchronousProjectPathChange) and
+			(not oldKey or
+			 oldKey isnt options.projectState.key or
+			 options.isAsynchronousProjectPathChange) and
 			atom.project.buffers.length and
 			atom.config.get 'project-ring.closePreviousProjectFiles'
 				@closeProjectBuffersOnBufferCreate()
@@ -720,7 +728,7 @@ module.exports =
 			 not atom.config.get 'project-ring.doNotSaveAndRestoreOpenProjectFiles') and
 			filesToOpen.length
 				lib.onceAddedBuffer removeEmptyBuffers
-				lib.openFile filePath for filePath in filesToOpen
+				lib.openFiles filePath for filePath in filesToOpen
 		else if atom.config.get 'project-ring.closePreviousProjectFiles'
 			removeEmptyBuffers()
 
@@ -753,7 +761,7 @@ module.exports =
 						openInCurrentWindow = false
 						didOpenOne = true
 					else if projectState.rootDirectories.length
-						atom.open pathsToOpen: projectState.rootDirectories, newWindow: true
+						lib.openFiles projectState.rootDirectories, true
 						didOpenOne = true
 					if didOpenOne and not configurationSet
 						if atom.config.get 'project-ring.makeTheCurrentProjectTheDefaultAtStartUp'
@@ -784,4 +792,4 @@ module.exports =
 		unless _fs.existsSync keyBindingsFilePath
 			@projectRingNotification.alert 'Could not find the default Project Ring key bindings file'
 			return
-		lib.openFile keyBindingsFilePath
+		lib.openFiles keyBindingsFilePath

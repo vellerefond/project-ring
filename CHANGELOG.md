@@ -1,3 +1,7 @@
+###### 0.20.2 - Implemented experimental support for opening projects in new windows
+* The toggle action can now open a project in a new window
+* A new command has been added to allow multiple projects to open at the same time (Open Multiple Projects)
+
 ###### 0.20.1 - Implemented sanity checks to guard against lingering, obsolete settings
 
 ###### 0.20.0 - Fixed the codebase to make it compatible with Atom's version 1.0 API

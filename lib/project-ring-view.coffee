@@ -6,13 +6,19 @@ class ProjectRingView extends SelectListView
 	initialize: (projectRing) ->
 		super
 		@projectRing = @projectRing or projectRing
-		@addClass 'project-ring overlay from-top'
+		@addClass 'project-ring-project-select overlay from-top'
 
 	serialize: ->
 
 	attach: (viewModeParameters, items, titleKey) ->
 		@viewModeParameters = viewModeParameters
 		unless @isInitialized
+			openInNewWindowLabel = $ '<label class="new-window-label">Open in a new window? <input type="checkbox" class="new-window" /></label>'
+			openInNewWindowLabel.css(
+				'display': 'inline-block', 'font-size': '14px', 'word-spacing': '-5px', 'letter-spacing': '0px', 'position': 'absolute', 'right': '15px'
+			).find('.new-window').css 'vertical-align': 'sub', 'width': '14px', 'height': '14px'
+			@filterEditorView[0].shadowRoot.appendChild openInNewWindowLabel[0]
+			@filterEditorView[0].shadowRoot.querySelector('.new-window').addEventListener 'click', => @filterEditorView.focus()
 			@filterEditorView.on 'keydown', (keydownEvent) => @onKeydown keydownEvent
 			@isInitialized = true
 		itemsArray = []
@@ -42,7 +48,9 @@ class ProjectRingView extends SelectListView
 
 	confirmed: ({data}) ->
 		@destroy()
-		@projectRing.handleProjectRingViewSelection @viewModeParameters, data
+		@projectRing.handleProjectRingViewSelection @viewModeParameters, {
+			projectState: data, openInNewWindow: @filterEditorView[0].shadowRoot.querySelector('.new-window').checked
+		}
 
 	onKeydown: (keydownEvent) ->
 		@projectRing.handleProjectRingViewKeydown keydownEvent, @viewModeParameters, @getSelectedItem()

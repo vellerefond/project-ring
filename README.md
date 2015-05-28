@@ -31,9 +31,11 @@
 
  - #### Choosing a project to load in Atom:
 
-    - **_Toggle_** displays a list with all the projects currently in the project ring and a mini editor above to filter this list. You can choose a project either by filtering and typing enter or by clicking on it. These actions load its state in Atom. In particular, Atom's project directories will be set to the ones of the chosen project, the tree view state will be updated to reflect the expanded folders as when it was last saved and the project's associated files will be opened.
+    - **_Toggle_** displays a list with all the projects currently in the project ring and a mini editor above to filter this list. You can choose a project either by filtering and typing enter or by clicking on it. These actions load its state in Atom. In particular, Atom's project directories will be set to the ones of the chosen project, the tree view state will be updated to reflect the expanded folders as when it was last saved and the project's associated files will be opened. A checkbox in the mini editor allows one to open the selected project in a new window.
 
     - **_Open Project Files_** opens a project's files (_of course..._ :-) ) but does not actually load the chosen project's state. This means that the current project will remain _current_ and the tree view will remain as is. This feature is useful to _append_ one project's files to another project. This means that the opened files will be saved along with the current project's files (if a project had been previously loaded). To simply _view_ a project's files without actually saving them in a project, use the **_Unload Current Project_** command (see below).
+
+    - **_Open Multiple Projects_** allows one to chose multiple projects for opening. If the current window is not associated with a project, the first project to open will open in it and the rest of the projects will open in new windows.
 
  - #### Manipulating a project's open files and marking files to always open:
 
@@ -72,7 +74,7 @@
 
  - **_Make The Current Project The Default At StartUp:_** If checked, when loading a project that project will be set as the default for when Atom restarts, just as if **_Project To Load At StartUp_** (see below) had been set with that project's alias as the value.
 
- - **_Project To Load At StartUp:_** Give a project's alias of project root path in this field to have it automatically load when Atom starts. When renaming a project and if this project was the one specified in this field, then this field is automatically updated to contains the project's new alias.
+ - **_Project To Load At StartUp:_** Select a project from the dropdown list to have it automatically load when Atom starts.
 
  - **_Do Not Save And Restore Open Project Files:_** If checked, then a project's files will not be saved in the project's state as they are opened nor will they be restored when the project is loaded.
 
