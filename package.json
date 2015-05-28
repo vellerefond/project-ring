@@ -1,19 +1,19 @@
 {
-  "name": "project-ring",
-  "main": "./lib/project-ring",
-  "version": "0.20.2",
-  "description": "Project management for the Atom editor.",
-  "repository": "https://github.com/vellerefond/project-ring",
-  "license": "MIT",
-  "engines": {
+	"name": "project-ring",
+	"main": "./lib/project-ring",
+	"version": "0.20.2",
+	"description": "Project management for the Atom editor.",
+	"repository": "https://github.com/vellerefond/project-ring",
+	"license": "MIT",
+	"engines": {
 	"atom": ">=0.201.0 <2.0.0"
-  },
-  "dependencies": {
-	  "atom-space-pen-views": "^2.0.3",
-	  "coffee-script": ">1.0.0",
-	  "fs-plus": ">2.0.0",
-	  "mkdirp": ">0.1.0",
-	  "season": ">1.0.0",
-	  "underscore-plus": ">1.0.0"
-  }
+	},
+	"dependencies": {
+		"atom-space-pen-views": "^2.0.3",
+		"coffee-script": ">1.0.0",
+		"fs-plus": ">2.0.0",
+		"mkdirp": ">0.1.0",
+		"season": ">1.0.0",
+		"underscore-plus": ">1.0.0"
+	}
 }
