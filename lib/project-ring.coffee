@@ -93,8 +93,9 @@ module.exports =
 		atom.commands.add 'atom-workspace', "project-ring:ban-files-from-current-project", => @banFilesFromProject()
 		atom.commands.add 'atom-workspace', "project-ring:always-open-current-file", => @alwaysOpenFilePath()
 		atom.commands.add 'atom-workspace', "project-ring:always-open-files", => @alwaysOpenFiles()
-		atom.commands.add 'atom-workspace', "project-ring:delete-current-project", => @deleteCurrentProject()
+		atom.commands.add 'atom-workspace', "project-ring:show-current-project", => @showCurrentProject()
 		atom.commands.add 'atom-workspace', "project-ring:unload-current-project", => @unloadCurrentProject()
+		atom.commands.add 'atom-workspace', "project-ring:delete-current-project", => @deleteCurrentProject()
 		atom.commands.add 'atom-workspace', "project-ring:delete-project-ring", => @deleteProjectRing()
 		atom.commands.add 'atom-workspace', "project-ring:edit-key-bindings", => @editKeyBindings()
 
@@ -576,15 +577,12 @@ module.exports =
 			filePathsToOfferForAlwaysOpening.sort()
 			@projectRingFileSelectView.attach { viewMode: 'always-open', confirmValue: 'Always Open' }, filePathsToOfferForAlwaysOpening
 
-	deleteCurrentProject: ->
-		@projectRingView.destroy() if @projectRingView
-		return unless @currentProjectState
-		key = @currentProjectState.key
-		@currentProjectState = undefined
-		@unsetProjectState key if key
-		@saveProjectRing()
-		lib.updateDefaultProjectConfiguration '', Object.keys(@statesCache), true, key
-		@projectRingNotification.notify 'Project "' + key + '" has been deleted'
+	showCurrentProject: ->
+		currentProjectState = @checkIfInProject()
+		if currentProjectState
+			@projectRingNotification.notify 'Project "' + currentProjectState.key + '" is currently loaded'
+		else
+			@projectRingNotification.warn 'No project has been loaded'
 
 	unloadCurrentProject: (doNotShowNotification, doNotAffectAtom) ->
 		return unless @checkIfInProject false
@@ -598,6 +596,16 @@ module.exports =
 			@currentlySettingProjectRootDirectories = false
 		@currentProjectState = undefined
 		@projectRingNotification.warn 'No project has been loaded' unless doNotShowNotification
+
+	deleteCurrentProject: ->
+		@projectRingView.destroy() if @projectRingView
+		return unless @currentProjectState
+		key = @currentProjectState.key
+		@currentProjectState = undefined
+		@unsetProjectState key if key
+		@saveProjectRing()
+		lib.updateDefaultProjectConfiguration '', Object.keys(@statesCache), true, key
+		@projectRingNotification.notify 'Project "' + key + '" has been deleted'
 
 	deleteProjectRing: ->
 		return unless lib.getProjectRingId() and not /^\s*$/.test lib.getProjectRingId()
