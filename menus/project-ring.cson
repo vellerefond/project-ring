@@ -1,22 +1,3 @@
-# See https://atom.io/docs/latest/creating-a-package#menus for more details
-'context-menu':
-	'.overlayer':
-		'Project Ring: Add Project': 'project-ring:add-project'
-		'Project Ring: Rename Current Project': 'project-ring:rename-current-project'
-		'Project Ring: Delete Current Project': 'project-ring:delete-current-project'
-		'Project Ring: Toggle Ring': 'project-ring:toggle'
-		'Project Ring: Open Project Files': 'project-ring:open-project-files'
-		'Project Ring: Open Multiple Projects': 'project-ring:open-multiple-projects'
-		'Project Ring: Add Current File To Current Project': 'project-ring:add-current-file-to-current-project'
-		'Project Ring: Add Files To Current Project': 'project-ring:add-files-to-current-project'
-		'Project Ring: Ban Current File From Project': 'project-ring:ban-current-file-from-current-project'
-		'Project Ring: Ban Files From Current Project': 'project-ring:ban-files-from-current-project'
-		'Project Ring: Always Open Current File': 'project-ring:always-open-current-file'
-		'Project Ring: Always Open Files': 'project-ring:always-open-files'
-		'Project Ring: Unload Current Project': 'project-ring:unload-current-project'
-		'Project Ring: Delete Current Project Ring Data': 'project-ring:delete-project-ring'
-		'Project Ring: Edit Key Bindings': 'project-ring:edit-key-bindings'
-
 'menu': [
 	{
 		'label': 'Packages'

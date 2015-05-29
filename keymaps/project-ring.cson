@@ -1,17 +1,3 @@
-# Keybindings require three things to be fully defined: A selector that is
-# matched against the focused element, the keystroke and the command to
-# execute.
-#
-# Below is a basic keybinding which registers on all platforms by applying to
-# the root workspace element.
-
-# For more detailed documentation see
-# https://atom.io/docs/latest/advanced/keymaps
-
-# After changing the key bingings while running Atom at the same time,
-# please, reload (in command palette: "Window: Reload") or close and
-# reopen Atom for the changes to take effect.
-
 'atom-workspace ':
 	'alt-shift-\\': 'project-ring:add-project'
 	'alt-shift-/': 'project-ring:rename-current-project'

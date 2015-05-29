@@ -1,3 +1,5 @@
+###### 0.20.5 - Removed the context menu specification as there is no need for one
+
 ###### 0.20.4 - Removed the command "Show Current Project" in favor of using the list of the toggle action to highlight the current project
 
 ###### 0.20.3 - Added a new command (Show Current Project)
