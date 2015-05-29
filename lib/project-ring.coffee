@@ -93,7 +93,6 @@ module.exports =
 		atom.commands.add 'atom-workspace', "project-ring:ban-files-from-current-project", => @banFilesFromProject()
 		atom.commands.add 'atom-workspace', "project-ring:always-open-current-file", => @alwaysOpenFilePath()
 		atom.commands.add 'atom-workspace', "project-ring:always-open-files", => @alwaysOpenFiles()
-		atom.commands.add 'atom-workspace', "project-ring:show-current-project", => @showCurrentProject()
 		atom.commands.add 'atom-workspace', "project-ring:unload-current-project", => @unloadCurrentProject()
 		atom.commands.add 'atom-workspace', "project-ring:delete-current-project", => @deleteCurrentProject()
 		atom.commands.add 'atom-workspace', "project-ring:delete-project-ring", => @deleteProjectRing()
@@ -487,8 +486,10 @@ module.exports =
 			@projectRingView.destroy()
 		else
 			@loadProjectRingView()
+			console.debug @checkIfInProject()
 			@projectRingView.attach {
 				viewMode: 'project',
+				currentItem: @checkIfInProject()
 				openProjectFilesOnly: openProjectFilesOnly
 				placeholderText:
 					if not openProjectFilesOnly
@@ -576,13 +577,6 @@ module.exports =
 					path: buffer.file.path
 			filePathsToOfferForAlwaysOpening.sort()
 			@projectRingFileSelectView.attach { viewMode: 'always-open', confirmValue: 'Always Open' }, filePathsToOfferForAlwaysOpening
-
-	showCurrentProject: ->
-		currentProjectState = @checkIfInProject()
-		if currentProjectState
-			@projectRingNotification.notify 'Project "' + currentProjectState.key + '" is currently loaded'
-		else
-			@projectRingNotification.warn 'No project has been loaded'
 
 	unloadCurrentProject: (doNotShowNotification, doNotAffectAtom) ->
 		return unless @checkIfInProject false

@@ -53,8 +53,6 @@
 
  - #### Other commands
 
-    - **_Show Current Project_** displays the currently loaded project's name.
-
     - **_Unload Current Project_**, well, _unlinks_ Atom from its current notion of project path. It is the opposite from opening a folder when Atom starts. This means that the tree view is emptied and that we can open another folder without Atom opening a new window for it. If a project had been loaded then it can be considered unloaded after this command has run. I.e., opening/closing files and manipulating the tree view after an _Open Folder..._ will not mess anything up.
 
     - **_Edit Key Bindings_** opens a file, with the package's key bindings file, for you to edit at will. After editing this file you should use the command _Window: Reload_ from the command palette or restart Atom.

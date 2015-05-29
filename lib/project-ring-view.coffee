@@ -24,12 +24,12 @@ class ProjectRingView extends SelectListView
 		itemsArray = []
 		for key, i in Object.keys(items).filter((key) -> key isnt lib.defaultProjectCacheKey).sort()
 			index = (i + 1).toString()
-			itemsArray.push {
-				'index': index,
-				'title': items[key][titleKey],
-				'query': index + ': ' + items[key][titleKey]
-				'data': items[key]
-			}
+			itemsArray.push
+				index: index,
+				title: items[key][titleKey],
+				query: index + ': ' + items[key][titleKey]
+				data: items[key]
+				isCurrent: items[key] is @viewModeParameters.currentItem
 		@setItems itemsArray
 		@self = atom.workspace.addModalPanel item: @
 		@filterEditorView.getModel().setPlaceholderText @viewModeParameters.placeholderText
@@ -38,9 +38,9 @@ class ProjectRingView extends SelectListView
 	getEmptyMessage: (itemCount, filteredItemCount) =>
 		'No items in the list or no matching items.'
 
-	viewForItem: ({index, title}) ->
+	viewForItem: ({index, title, isCurrent}) ->
 		$$ ->
-			@li class: 'project-ring-item', =>
+			@li class: 'project-ring-item' + (if isCurrent then ' project-ring-item-current' else ''), =>
 				@div class: 'project-ring-item-title', index + ": " + title
 
 	getFilterKey: ->

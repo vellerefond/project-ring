@@ -13,6 +13,21 @@
 		float: left;
 		font-size: 15px;
 	}
+
+	&.project-ring-item-current::after {
+		content: ' ';
+		display: inline-block;
+		position: relative;
+		vertical-align: text-bottom;
+		margin-left: 8px;
+		width: 14px;
+		height: 14px;
+		background-image: url(atom://project-ring/assets/checkmark-512.png);
+		background-position: 0px 0px;
+		background-size: cover;
+		background-repeat: no-repeat;
+		background-color: transparent;
+	}
 }
 
 .project-ring-input {}

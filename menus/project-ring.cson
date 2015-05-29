@@ -13,7 +13,6 @@
 		'Project Ring: Ban Files From Current Project': 'project-ring:ban-files-from-current-project'
 		'Project Ring: Always Open Current File': 'project-ring:always-open-current-file'
 		'Project Ring: Always Open Files': 'project-ring:always-open-files'
-		'Project Ring: Show Current Project': 'project-ring:show-current-project'
 		'Project Ring: Unload Current Project': 'project-ring:unload-current-project'
 		'Project Ring: Delete Current Project Ring Data': 'project-ring:delete-project-ring'
 		'Project Ring: Edit Key Bindings': 'project-ring:edit-key-bindings'
@@ -36,7 +35,6 @@
 				{ 'label': 'Ban Files From Current Project', 'command': 'project-ring:ban-files-from-current-project' },
 				{ 'label': 'Always Open Current File', 'command': 'project-ring:always-open-current-file' },
 				{ 'label': 'Always Open Files', 'command': 'project-ring:always-open-files' },
-				{ 'label': 'Show Current Project', 'command': 'project-ring:show-current-project' },
 				{ 'label': 'Unload Current Project', 'command': 'project-ring:unload-current-project' },
 				{ 'label': 'Delete Current Project Ring', 'command': 'project-ring:delete-project-ring' },
 				{ 'label': 'Edit Key Bindings', 'command': 'project-ring:edit-key-bindings' }

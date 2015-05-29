@@ -1,3 +1,5 @@
+###### 0.20.4 - Removed the command "Show Current Project" in favor of using the list of the toggle action to highlight the current project
+
 ###### 0.20.3 - Added a new command (Show Current Project)
 
 ###### 0.20.2 - Implemented experimental support for opening projects in new windows
