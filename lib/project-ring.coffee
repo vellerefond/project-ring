@@ -27,8 +27,8 @@ module.exports =
 			return
 		@projectRingInvariantState = Object.freeze
 			emptyBufferDestroyDelayOnStartup: 750
-			deletionDelay: 250,
-			changedPathsUpdateDelay: 500,
+			deletionDelay: 250
+			changedPathsUpdateDelay: 500
 			configurationFileWatchInterval: 2500
 			isInitialized: true
 		@currentlySavingConfiguration =

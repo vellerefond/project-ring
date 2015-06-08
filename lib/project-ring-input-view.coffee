@@ -13,8 +13,9 @@ class ProjectRingInputView extends View
 	attach: (viewModeParameters, placeholderText, text) ->
 		@viewModeParameters = viewModeParameters
 		unless @isInitialized
-			@editor.on 'core:confirm', => @confirmed()
-			@editor.on 'core:cancel', => @destroy()
+			atom.commands.add @editor[0],
+				'core:confirm': => @confirmed()
+				'core:cancel': => @destroy()
 			@isInitialized = true
 		@editor.find('input').off 'blur'
 		@editor.getModel().setPlaceholderText placeholderText
