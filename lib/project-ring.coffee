@@ -351,7 +351,7 @@ module.exports =
 			@projectRingNotification.alert 'No project has been loaded'
 		return @currentProjectState
 
-	addOpenFilePathToProject: (openFilePathToAdd, manually) ->
+	addOpenFilePathToProject: (openFilePathToAdd, manually, omitNotification) ->
 		return unless @checkIfInProject not manually
 		deferedAddition = if openFilePathToAdd and not manually then true else false
 		openFilePathToAdd = atom.workspace.getActiveTextEditor()?.buffer.file?.path unless openFilePathToAdd
@@ -374,7 +374,7 @@ module.exports =
 						lib.findInArray @currentProjectState.files.open, openFilePathInAll.toLowerCase(), String.prototype.toLowerCase
 					@currentProjectState.files.open = newOpenFilePaths
 					@saveProjectRing()
-					if manually
+					if manually and (typeof omitNotification is 'undefined' or omitNotification)
 						@projectRingNotification.notify \
 							'File "' + require('path').basename(openFilePathToAdd) + '" has been added to project "' + @currentProjectState.key + '"'
 				), 0
@@ -486,9 +486,8 @@ module.exports =
 			@projectRingView.destroy()
 		else
 			@loadProjectRingView()
-			console.debug @checkIfInProject()
 			@projectRingView.attach {
-				viewMode: 'project',
+				viewMode: if not openProjectFilesOnly then 'project' else 'project-files',
 				currentItem: @checkIfInProject()
 				openProjectFilesOnly: openProjectFilesOnly
 				placeholderText:
@@ -614,12 +613,14 @@ module.exports =
 
 	handleProjectRingViewKeydown: (keydownEvent, viewModeParameters, selectedItem) ->
 		return unless keydownEvent and selectedItem
-		# alt-shift-delete
-		if viewModeParameters.viewMode is 'project' and
-		keydownEvent.altKey and
-		keydownEvent.shiftKey and
-		keydownEvent.which is 46
-			@processProjectRingViewProjectDeletion selectedItem.data
+		if \
+			viewModeParameters.viewMode is 'project' and
+			keydownEvent.altKey and
+			keydownEvent.shiftKey
+				switch keydownEvent.which
+					when 8 then @processProjectRingViewProjectDeletion selectedItem.data # alt-shift-backspace
+					when 85 then @unloadCurrentProject() # alt-shift-u
+
 
 	processProjectRingViewProjectDeletion: (projectState) ->
 		return unless projectState and @statesCache
@@ -645,23 +646,13 @@ module.exports =
 	closeProjectBuffersOnBufferCreate: ->
 		filePathsToAlwaysOpen = @getProjectState(lib.defaultProjectCacheKey).files.open.map (openFilePath) -> openFilePath.toLowerCase()
 		projectRelatedBufferPaths = {}
-		(Object.keys(@statesCache).filter (key) -> key isnt lib.defaultProjectCacheKey).forEach (key) =>
+		Object.keys(@statesCache).filter((key) -> key isnt lib.defaultProjectCacheKey).forEach (key) =>
 			@getProjectState(key).files.open.forEach (openFilePath) -> projectRelatedBufferPaths[openFilePath.toLowerCase()] = null
 		projectRelatedBufferPaths = Object.keys projectRelatedBufferPaths
 		projectUnrelatedBufferPaths = []
 		atom.project.buffers.filter((buffer) -> buffer.file).forEach (buffer) =>
-				bufferFilePathProxy = buffer.file.path.toLowerCase()
-				bufferFilePathIsProjectUnrelated =
-					bufferFilePathProxy not in projectRelatedBufferPaths and
-					not lib.findInArray(
-						Object.keys(@statesCache).filter((key) -> key isnt lib.defaultProjectCacheKey),
-						bufferFilePathProxy,
-						(getProjectStateFunc) -> (
-							bufferFilePathProxy if lib.filePathIsInProject bufferFilePathProxy, getProjectStateFunc(@.toString()).rootDirectories
-						),
-						[ @getProjectState.bind @ ]
-					)
-				projectUnrelatedBufferPaths.push bufferFilePathProxy if bufferFilePathIsProjectUnrelated
+			bufferFilePathProxy = buffer.file.path.toLowerCase()
+			projectUnrelatedBufferPaths.push bufferFilePathProxy if bufferFilePathProxy not in projectRelatedBufferPaths
 		atom.project.buffers.filter((buffer) ->
 			bufferPath = buffer.file?.path.toLowerCase()
 			bufferPath and
@@ -681,6 +672,21 @@ module.exports =
 		options.projectState.files.banned = options.projectState.files.banned.filter (filePath) -> _fs.existsSync filePath
 		@saveProjectRing()
 		oldKey = @currentProjectState?.key
+		addMissingOpenFilesToCurrentProject = =>
+			filePathsToAlwaysOpen = @getProjectState(lib.defaultProjectCacheKey).files.open.map (openFilePath) -> openFilePath.toLowerCase()
+			projectRelatedBufferPaths = {}
+			Object.keys(@statesCache).filter((key) -> key isnt lib.defaultProjectCacheKey).forEach (key) =>
+				@getProjectState(key).files.open.forEach (openFilePath) -> projectRelatedBufferPaths[openFilePath.toLowerCase()] = null
+			projectRelatedBufferPaths = Object.keys projectRelatedBufferPaths
+			atom.project.buffers.filter((buffer) ->
+				bufferPath = buffer.file?.path.toLowerCase()
+				bufferPath and
+				bufferPath not in filePathsToAlwaysOpen and
+				bufferPath not in projectRelatedBufferPaths
+			).forEach (buffer) =>
+				bufferFilePathProxy = buffer.file.path.toLowerCase()
+				if lib.filePathIsInProject bufferFilePathProxy
+					@addOpenFilePathToProject buffer.file.path, true, true
 		unless options.openProjectFilesOnly
 			unless \
 				options.projectState.key is oldKey and
@@ -695,10 +701,12 @@ module.exports =
 							@runFilePatternHiding()
 						), 0
 						@currentProjectState = options.projectState
+						addMissingOpenFilesToCurrentProject()
 						@projectRingNotification.notify 'Project "' + options.projectState.key + '" has been loaded'
 					atom.project.setPaths options.projectState.rootDirectories
 			else
 				@currentProjectState = options.projectState
+				addMissingOpenFilesToCurrentProject()
 				@projectRingNotification.notify 'Project "' + options.projectState.key + '" has been loaded'
 			if atom.config.get 'project-ring.makeTheCurrentProjectTheDefaultAtStartUp'
 				lib.setDefaultProjectToLoadAtStartUp options.projectState.key

@@ -30,6 +30,36 @@
 
 .project-ring-file-select,
 .project-ring-project-select {
+	.key-bindings-guide-label {
+		display: block;
+		position: relative;
+		font-size: 12px;
+		font-style: italic;
+		opacity: .8;
+
+		div {
+			display: inline-block;
+			position: relative;
+
+			&:last-child {
+				float:right;
+			}
+
+			&::before {
+				content: ' ';
+				display: inline-block;
+				position: relative;
+				top: 1px;
+				width: 11px;
+				height: 11px;
+				margin-right: 5px;
+				background: url(atom://project-ring/assets/info-512.png);
+				background-size:cover;
+				opacity: .8;
+			}
+		}
+	}
+
 	.controls {
 		min-height: 32px;
 		margin-bottom: 5px;

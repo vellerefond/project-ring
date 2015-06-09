@@ -19,8 +19,17 @@ class ProjectRingView extends SelectListView
 			).find('.new-window').css 'vertical-align': 'sub', 'width': '14px', 'height': '14px'
 			@filterEditorView[0].shadowRoot.appendChild openInNewWindowLabel[0]
 			@filterEditorView[0].shadowRoot.querySelector('.new-window').addEventListener 'click', => @filterEditorView.focus()
+			@filterEditorView.after \
+				$ '<div class="key-bindings-guide-label">' \
+				+  '<div>Delete selected project: <strong>alt-shift-delete</strong></div>' \
+				+  '<div>Unload current project: <strong>alt-shift-u</strong></div>' \
+				+ '</div>'
 			@filterEditorView.on 'keydown', (keydownEvent) => @onKeydown keydownEvent
 			@isInitialized = true
+		if viewModeParameters.viewMode is 'project'
+			@filterEditorView.next('.key-bindings-guide-label').show()
+		else
+			@filterEditorView.next('.key-bindings-guide-label').hide()
 		itemsArray = []
 		for key, i in Object.keys(items).filter((key) -> key isnt lib.defaultProjectCacheKey).sort()
 			index = (i + 1).toString()
