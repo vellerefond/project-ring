@@ -1,3 +1,5 @@
+###### 0.20.9 - Small CSS fix regarding the toggle view
+
 ###### 0.20.8 - Small logic fix for when opening an already opened file in another pane
 
 ###### 0.20.7 - Made logic fixes regarding the addition of files to projects and made it easier to delete a project or unload the current project using the toggle view
