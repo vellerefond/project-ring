@@ -359,8 +359,9 @@ module.exports =
 		openFilePathToAdd = openFilePathToAdd.toLowerCase()
 		defaultProjectState = @getProjectState lib.defaultProjectCacheKey
 		return if \
-			not manually and
-			lib.findInArray @currentProjectState.files.banned, openFilePathToAdd, String.prototype.toLowerCase
+			lib.findInArray(@currentProjectState.files.open, openFilePathToAdd, String.prototype.toLowerCase) or
+			(not manually and
+			 lib.findInArray @currentProjectState.files.banned, openFilePathToAdd, String.prototype.toLowerCase)
 		if manually
 			defaultProjectState.files.open =
 				lib.filterFromArray defaultProjectState.files.open, openFilePathToAdd, String.prototype.toLowerCase

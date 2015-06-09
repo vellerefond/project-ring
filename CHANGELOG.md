@@ -1,3 +1,5 @@
+###### 0.20.8 - Small logic fix for when opening an already opened file in another pane
+
 ###### 0.20.7 - Made logic fixes regarding the addition of files to projects and made it easier to delete a project or unload the current project using the toggle view
 * When a project unrelated file is open and a project is loaded where the file belongs to one of the project's root directory subtrees, the file is automatically added to that project
 * When a project is loaded only files that are in the open file list of other projects are closed and other files, even belonging to one of the other projects' root directory subtrees, are left open, since they are not yet part of that project
