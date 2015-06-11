@@ -1,3 +1,5 @@
+###### 0.30.0 - Fixed already opened files addition logic when adding a new project folder
+
 ###### 0.20.9 - Small CSS fix regarding the toggle view
 
 ###### 0.20.8 - Small logic fix for when opening an already opened file in another pane
