@@ -749,6 +749,9 @@ module.exports =
 			(options.openProjectFilesOnly or
 			 not atom.config.get 'project-ring.doNotSaveAndRestoreOpenProjectFiles') and
 			filesToOpen.length
+				lib.moveAllEditorsToFirstNonEmptyPane()
+				lib.destroyEmptyPanes()
+				lib.selectFirstNonEmptyPane()
 				lib.onceAddedBuffer removeEmptyBuffers
 				lib.openFiles filePath for filePath in filesToOpen
 		else if atom.config.get 'project-ring.closePreviousProjectFiles'

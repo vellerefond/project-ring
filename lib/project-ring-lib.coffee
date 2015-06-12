@@ -294,30 +294,32 @@ module.exports = Object.freeze
 	# ---- Pane Manipulation #
 	##########################
 
-	getFirstPane: ->
-		atom.workspace.getPanes()[0];
+	getFirstNonEmptyPane: ->
+		atom.workspace.getPanes().filter((pane) -> pane.getItems().length)[0]
 
 	getRestPanes: ->
-		atom.workspace.getPanes().filter (pane, index) -> index > 0
+		firstNonEmptyPane = @getFirstNonEmptyPane()
+		atom.workspace.getPanes().filter (pane) -> pane isnt firstNonEmptyPane
 
-	selectFirstPane: ->
-		firstPane = @getFirstPane()
-		atom.workspace.activateNextPane() while firstPane isnt atom.workspace.getActivePane()
-		firstPane
+	selectFirstNonEmptyPane: ->
+		firstNonEmptyPane = @getFirstNonEmptyPane()
+		return undefined unless firstNonEmptyPane
+		atom.workspace.activateNextPane() while firstNonEmptyPane isnt atom.workspace.getActivePane()
+		firstNonEmptyPane
 
-	moveAllEditorsToFirstPane: ->
-		firstPane = @getFirstPane()
+	moveAllEditorsToFirstNonEmptyPane: ->
+		firstNonEmptyPane = @getFirstNonEmptyPane()
 		@getRestPanes().forEach (pane) ->
 			pane.getItems().forEach (item) ->
 				return unless item instanceof TextEditor
 				if item.buffer.file
 					itemBufferFilePath = item.buffer.file.path.toLowerCase()
-					if @findInArray firstPane.getItems(), itemBufferFilePath, (
+					if @findInArray firstNonEmptyPane.getItems(), itemBufferFilePath, (
 						-> @ instanceof TextEditor and @.buffer.file and @.buffer.file.path.toLowerCase() is itemBufferFilePath
 					)
 						pane.removeItem item
 						return
-				pane.moveItemToPane item, firstPane
+				pane.moveItemToPane item, firstNonEmptyPane
 
 	destroyEmptyPanes: ->
 		panes = atom.workspace.getPanes()
