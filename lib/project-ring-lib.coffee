@@ -1,3 +1,5 @@
+{ TextEditor } = require 'atom'
+
 projectReceiverKey = Symbol 'projectReceiverKey'
 workspaceReceiverKey = Symbol 'workspaceReceiverKey'
 permanentEventKey = Symbol 'permanentEventKey'
@@ -93,20 +95,20 @@ defaultProjectRingId = 'default'
 projectRingId = undefined
 
 module.exports = Object.freeze
-	##############################
-	# Private Variables -- Start #
-	##############################
+	#############################
+	# Public Variables -- Start #
+	#############################
 
 	projectToLoadAtStartUpConfigurationKeyPath: 'project-ring.projectToLoadAtStartUp'
 	defaultProjectCacheKey: '<~>'
 
-	############################
-	# Private Variables -- END #
-	############################
+	###########################
+	# Public Variables -- END #
+	###########################
 
-	#####################################
-	# Private Helper Functions -- Start #
-	#####################################
+	####################################
+	# Public Helper Functions -- Start #
+	####################################
 
 	setProjectRingId: (id) ->
 		projectRingId = id?.trim() or defaultProjectRingId
@@ -288,6 +290,49 @@ module.exports = Object.freeze
 		return unless typeof callback is 'function'
 		addEventCallback workspaceReceiverKey, addedTextEditorEventKey, true, callback
 
-	###################################
-	# Private Helper Functions -- END #
-	###################################
+	##########################
+	# ---- Pane Manipulation #
+	##########################
+
+	getFirstPane: ->
+		atom.workspace.getPanes()[0];
+
+	getRestPanes: ->
+		atom.workspace.getPanes().filter (pane, index) -> index > 0
+
+	selectFirstPane: ->
+		firstPane = @getFirstPane()
+		atom.workspace.activateNextPane() while firstPane isnt atom.workspace.getActivePane()
+		firstPane
+
+	moveAllEditorsToFirstPane: ->
+		firstPane = @getFirstPane()
+		@getRestPanes().forEach (pane) ->
+			pane.getItems().forEach (item) ->
+				return unless item instanceof TextEditor
+				if item.buffer.file
+					itemBufferFilePath = item.buffer.file.path.toLowerCase()
+					if @findInArray firstPane.getItems(), itemBufferFilePath, (
+						-> @ instanceof TextEditor and @.buffer.file and @.buffer.file.path.toLowerCase() is itemBufferFilePath
+					)
+						pane.removeItem item
+						return
+				pane.moveItemToPane item, firstPane
+
+	destroyEmptyPanes: ->
+		panes = atom.workspace.getPanes()
+		return if panes.length is 1
+		panes.forEach (pane) ->
+			return if atom.workspace.getPanes().length is 1
+			pane.destroy() unless pane.items.length
+
+	destroyRestPanes: (allowEditorDestructionEvent) ->
+		@getRestPanes().forEach (pane) ->
+			pane.getItems().forEach (item) ->
+				return unless item instanceof TextEditor
+				item.emitter.off 'did-destroy' unless allowEditorDestructionEvent
+			pane.destroy()
+
+	##################################
+	# Public Helper Functions -- END #
+	##################################

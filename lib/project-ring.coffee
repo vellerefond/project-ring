@@ -1,5 +1,5 @@
 lib = require './project-ring-lib'
-
+window.ll = lib # TODO: remove
 module.exports =
 	config:
 		closePreviousProjectFiles: { type: 'boolean', default: true, description: 'Close the files of other projects when switching to a project' }
