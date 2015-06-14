@@ -1,3 +1,5 @@
+###### 0.30.1 - Fixed the file adding logic when creating a new empty file and then saving it while a project has been loaded
+
 ###### 0.30.0 - Fixed already opened files addition logic when adding a new project folder
 
 ###### 0.20.9 - Small CSS fix regarding the toggle view

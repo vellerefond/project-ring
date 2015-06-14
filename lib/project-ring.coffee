@@ -131,17 +131,26 @@ module.exports =
 				atom.project.buffers.forEach (buffer) =>
 					lib.offDestroyedBuffer buffer
 					lib.onceDestroyedBuffer buffer, onBufferDestroyedProjectRingEventHandlerFactory buffer
+				onAddedBufferDoSetup = (openProjectBuffer, deferedManualSetup) =>
+					setTimeout (=>
+						lib.offDestroyedBuffer openProjectBuffer unless deferedManualSetup
+						lib.onceDestroyedBuffer openProjectBuffer, onBufferDestroyedProjectRingEventHandlerFactory openProjectBuffer
+						if atom.config.get 'project-ring.keepAllOpenFilesRegardlessOfProject'
+							@alwaysOpenFilePath openProjectBuffer.file.path
+							return
+						return unless \
+							atom.config.get('project-ring.keepOutOfPathOpenFilesInCurrentProject') or
+							lib.filePathIsInProject openProjectBuffer.file.path
+						unless deferedManualSetup
+							@addOpenFilePathToProject openProjectBuffer.file.path
+						else
+							@addOpenFilePathToProject openProjectBuffer.file.path, true, true
+					), 0
 				lib.onAddedBuffer (openProjectBuffer) =>
-					return unless openProjectBuffer.file
-					lib.offDestroyedBuffer openProjectBuffer
-					lib.onceDestroyedBuffer openProjectBuffer, onBufferDestroyedProjectRingEventHandlerFactory openProjectBuffer
-					if atom.config.get 'project-ring.keepAllOpenFilesRegardlessOfProject'
-						@alwaysOpenFilePath openProjectBuffer.file.path
-						return
-					return unless \
-						atom.config.get('project-ring.keepOutOfPathOpenFilesInCurrentProject') or
-						lib.filePathIsInProject openProjectBuffer.file.path
-					@addOpenFilePathToProject openProjectBuffer.file.path
+					if openProjectBuffer.file
+						onAddedBufferDoSetup openProjectBuffer, false
+					else
+						lib.onceSavedBuffer openProjectBuffer, -> onAddedBufferDoSetup openProjectBuffer, true
 		setTimeout (=>
 			{ $ } = require 'atom-space-pen-views'
 			$('.tab-bar').on 'drop', => setTimeout (=> @add updateOpenFilePathPositionsOnly: true), 0
