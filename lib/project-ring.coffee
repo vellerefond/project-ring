@@ -42,10 +42,7 @@ module.exports =
 			lib.setDefaultProjectToLoadAtStartUp @currentProjectState.key
 		projectKeyToLoadAtStartUp = lib.getDefaultProjectToLoadAtStartUp lib.getProjectRingId()
 		lib.onceStatesCacheInitialized =>
-			_fs = require 'fs'
 			defaultProjectState = @getProjectState lib.defaultProjectCacheKey
-			defaultProjectState.files.open = defaultProjectState.files.open.filter (filePath) -> _fs.existsSync filePath
-			@saveProjectRing()
 			if defaultProjectState.files.open.length
 				currentlyOpenFilePaths = @getOpenFilePaths().map (openFilePath) -> openFilePath.toLowerCase()
 				filePathsToOpen = defaultProjectState.files.open.filter (filePathToOpen) -> filePathToOpen.toLowerCase() not in currentlyOpenFilePaths
@@ -122,7 +119,7 @@ module.exports =
 									lib.filterFromArray defaultProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
 								@saveProjectRing()
 								return
-							return unless @currentProjectState
+							return unless @checkIfInProject()
 							if lib.findInArray @currentProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
 								@currentProjectState.files.open =
 									lib.filterFromArray @currentProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
@@ -136,7 +133,7 @@ module.exports =
 						lib.offDestroyedBuffer openProjectBuffer unless deferedManualSetup
 						lib.onceDestroyedBuffer openProjectBuffer, onBufferDestroyedProjectRingEventHandlerFactory openProjectBuffer
 						if atom.config.get 'project-ring.keepAllOpenFilesRegardlessOfProject'
-							@alwaysOpenFilePath openProjectBuffer.file.path
+							@alwaysOpenFilePath openProjectBuffer.file.path, true
 							return
 						return unless \
 							atom.config.get('project-ring.keepOutOfPathOpenFilesInCurrentProject') or
@@ -251,6 +248,29 @@ module.exports =
 		@loadProjectRing projectKeyToLoad, fromConfigWatchCallback
 		@watchProjectRingConfiguration true
 
+	filterProjectRingFilePaths: ->
+		return unless @statesCache
+		_fs = require 'fs'
+		statesCacheKeysFixed = []
+		for key in Object.keys @statesCache
+			statesCacheHasBeenFixed = false
+			projectState = @getProjectState key
+			rootDirectories = projectState.rootDirectories.filter (rootDirectory) -> _fs.existsSync rootDirectory
+			if  rootDirectories.length isnt projectState.rootDirectories.length
+				projectState.rootDirectories = rootDirectories
+				statesCacheHasBeenFixed = true
+			openFilePaths = projectState.files.open.filter (openFilePath) -> _fs.existsSync openFilePath
+			if  openFilePaths.length isnt projectState.files.open.length
+				projectState.files.open = openFilePaths
+				statesCacheHasBeenFixed = true
+			bannedFilePaths = projectState.files.banned.filter (bannedFilePath) -> _fs.existsSync bannedFilePath
+			if  bannedFilePaths.length isnt projectState.files.banned.length
+				projectState.files.banned = bannedFilePaths
+				statesCacheHasBeenFixed = true
+			statesCacheKeysFixed.push key if statesCacheHasBeenFixed
+		@saveProjectRing() if statesCacheKeysFixed.length
+		statesCacheKeysFixed
+
 	loadProjectRing: (projectKeyToLoad, fromConfigWatchCallback) ->
 		return unless lib.getProjectRingId()
 		csonFilePath = lib.getCSONFilePath()
@@ -287,7 +307,6 @@ module.exports =
 					}
 				@statesCache = statesCacheTmp
 				@saveProjectRing()
-				_fs = require 'fs'
 				try
 					pathFilePath = lib.getConfigurationFilePath 'default_project_ring_path.txt'
 					_fs.unlinkSync pathFilePath if _fs.existsSync pathFilePath
@@ -295,6 +314,7 @@ module.exports =
 			# END: TRANSITIONAL CODE TO MIGRATE THE PROJECT SPECIFICATION TO THE NEW FORMAT
 			projectToLoad = undefined
 			unless fromConfigWatchCallback
+				@filterProjectRingFilePaths()
 				rootDirectoriesSpec = atom.project.getPaths().map((path) -> path.toLowerCase().trim()).sort().join ''
 				if rootDirectoriesSpec
 					for key in Object.keys @statesCache
@@ -361,7 +381,7 @@ module.exports =
 		return @currentProjectState
 
 	addOpenFilePathToProject: (openFilePathToAdd, manually, omitNotification) ->
-		return unless @checkIfInProject not manually
+		return unless @checkIfInProject not manually or omitNotification
 		deferedAddition = if openFilePathToAdd and not manually then true else false
 		openFilePathToAdd = atom.workspace.getActiveTextEditor()?.buffer.file?.path unless openFilePathToAdd
 		return unless openFilePathToAdd
@@ -406,7 +426,7 @@ module.exports =
 			@projectRingNotification.notify \
 				'File "' + require('path').basename(openFilePathToBan) + '" has been banned from project "'+ @currentProjectState.key + '"'
 
-	alwaysOpenFilePath: (filePathToAlwaysOpen) ->
+	alwaysOpenFilePath: (filePathToAlwaysOpen, omitNotification) ->
 		filePathToAlwaysOpen = atom.workspace.getActiveTextEditor()?.buffer.file?.path unless filePathToAlwaysOpen
 		filePathToAlwaysOpenProxy = filePathToAlwaysOpen?.toLowerCase()
 		defaultProjectState = @getProjectState lib.defaultProjectCacheKey
@@ -420,7 +440,8 @@ module.exports =
 				lib.filterFromArray projectState.files.open, filePathToAlwaysOpenProxy, String.prototype.toLowerCase
 		defaultProjectState.files.open.push filePathToAlwaysOpen
 		@saveProjectRing()
-		@projectRingNotification.notify 'File "' + require('path').basename(filePathToAlwaysOpen) + '" has been marked to always open'
+		if omitNotification ? true
+			@projectRingNotification.notify 'File "' + require('path').basename(filePathToAlwaysOpen) + '" has been marked to always open'
 
 	add: (options) ->
 		options = options or {}
