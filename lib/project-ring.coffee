@@ -29,7 +29,6 @@ module.exports =
 			emptyBufferDestroyDelayOnStartup: 750
 			deletionDelay: 250
 			changedPathsUpdateDelay: 500
-			configurationFileWatchInterval: 2500
 			isInitialized: true
 		@currentlySavingConfiguration =
 			csonFile: false
@@ -219,19 +218,16 @@ module.exports =
 
 	watchProjectRingConfiguration: (watch) ->
 		return unless lib.getProjectRingId()
-		_fs = require 'fs'
 		csonFilePath = lib.getCSONFilePath()
 		if watch and csonFilePath
-			_fs.watchFile \
-				csonFilePath,
-				{ persistent: true, interval: @projectRingInvariantState.configurationFileWatchInterval },
-				(currentStat, previousStat) =>
-					if @currentlySavingConfiguration.csonFile
-						@currentlySavingConfiguration.csonFile = false
-						return
-					@setProjectRing lib.getProjectRingId(), undefined, true
+			_fs = require 'fs'
+			lib.setProjectRingConfigurationWatcher _fs.watch csonFilePath, (event, filename) =>
+				if @currentlySavingConfiguration.csonFile
+					@currentlySavingConfiguration.csonFile = false
+					return
+				@setProjectRing lib.getProjectRingId(), undefined, true
 		else
-			_fs.unwatchFile csonFilePath if csonFilePath
+			lib.unsetProjectRingConfigurationWatcher()
 
 	setProjectRing: (id, projectKeyToLoad, fromConfigWatchCallback) ->
 		@watchProjectRingConfiguration false
@@ -519,7 +515,7 @@ module.exports =
 		else
 			@loadProjectRingView()
 			@projectRingView.attach {
-				viewMode: if not openProjectFilesOnly then 'project' else 'project-files',
+				viewMode: 'project',
 				currentItem: @checkIfInProject()
 				openProjectFilesOnly: openProjectFilesOnly
 				placeholderText:
