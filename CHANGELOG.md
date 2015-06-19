@@ -1,3 +1,8 @@
+###### 0.31.0 - Implemented sanity checks and fixed the logic of the project state updates with respect to file changes
+* Added sanity check to keep only existing project file paths at startup
+* Fixed the logic of the Open Project Files command and substituted fs.[un]watchFile for fs.watch
+* When a file is renamed, which includes it being deleted, the open file associations of the projects are updated
+
 ###### 0.30.1 - Fixed the file adding logic when creating a new empty file and then saving it while a project has been loaded
 
 ###### 0.30.0 - Fixed already opened files addition logic when adding a new project folder

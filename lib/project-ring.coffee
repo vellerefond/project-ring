@@ -29,7 +29,6 @@ module.exports =
 			emptyBufferDestroyDelayOnStartup: 750
 			deletionDelay: 250
 			changedPathsUpdateDelay: 500
-			configurationFileWatchInterval: 2500
 			isInitialized: true
 		@currentlySavingConfiguration =
 			csonFile: false
@@ -42,10 +41,7 @@ module.exports =
 			lib.setDefaultProjectToLoadAtStartUp @currentProjectState.key
 		projectKeyToLoadAtStartUp = lib.getDefaultProjectToLoadAtStartUp lib.getProjectRingId()
 		lib.onceStatesCacheInitialized =>
-			_fs = require 'fs'
 			defaultProjectState = @getProjectState lib.defaultProjectCacheKey
-			defaultProjectState.files.open = defaultProjectState.files.open.filter (filePath) -> _fs.existsSync filePath
-			@saveProjectRing()
 			if defaultProjectState.files.open.length
 				currentlyOpenFilePaths = @getOpenFilePaths().map (openFilePath) -> openFilePath.toLowerCase()
 				filePathsToOpen = defaultProjectState.files.open.filter (filePathToOpen) -> filePathToOpen.toLowerCase() not in currentlyOpenFilePaths
@@ -115,6 +111,7 @@ module.exports =
 					=>
 						return unless bufferDestroyed.file
 						setTimeout (=>
+							bufferDestroyed.projectRingFSWatcher.close() if bufferDestroyed.projectRingFSWatcher
 							bufferDestroyedPathProxy = bufferDestroyed.file.path.toLowerCase()
 							defaultProjectState = @getProjectState lib.defaultProjectCacheKey
 							if lib.findInArray defaultProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
@@ -122,7 +119,7 @@ module.exports =
 									lib.filterFromArray defaultProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
 								@saveProjectRing()
 								return
-							return unless @currentProjectState
+							return unless @checkIfInProject()
 							if lib.findInArray @currentProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
 								@currentProjectState.files.open =
 									lib.filterFromArray @currentProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
@@ -135,8 +132,22 @@ module.exports =
 					setTimeout (=>
 						lib.offDestroyedBuffer openProjectBuffer unless deferedManualSetup
 						lib.onceDestroyedBuffer openProjectBuffer, onBufferDestroyedProjectRingEventHandlerFactory openProjectBuffer
+						_fs = require('fs')
+						openProjectBufferFilePath = openProjectBuffer.file.path
+						openProjectBuffer.projectRingFSWatcher = _fs.watch openProjectBuffer.file.path, (event, filename) =>
+							setTimeout (=>
+								return unless event is 'rename'
+								affectedProjectKeys = @filterProjectRingFilePaths()
+								if lib.defaultProjectCacheKey in affectedProjectKeys
+									openProjectBuffer.projectRingFSWatcher.close() unless @fixOpenFilesToCurrentProjectAssociations()
+									@projectRingNotification.warn 'File "' + openProjectBufferFilePath + '" has been removed from the list of files to always open'
+								else if not @fixOpenFilesToCurrentProjectAssociations()
+									openProjectBuffer.projectRingFSWatcher.close()
+									@projectRingNotification.warn 'File "' + openProjectBufferFilePath + '" has been removed from the current project'
+								openProjectBufferFilePath = openProjectBuffer.file.path
+							), @projectRingInvariantState.changedPathsUpdateDelay
 						if atom.config.get 'project-ring.keepAllOpenFilesRegardlessOfProject'
-							@alwaysOpenFilePath openProjectBuffer.file.path
+							@alwaysOpenFilePath openProjectBuffer.file.path, true
 							return
 						return unless \
 							atom.config.get('project-ring.keepOutOfPathOpenFilesInCurrentProject') or
@@ -161,6 +172,7 @@ module.exports =
 			setTimeout (=>
 				return unless @checkIfInProject() and not @currentlySettingProjectRootDirectories
 				@add updateRootDirectoriesAndTreeViewStateOnly: true
+				@runFilePatternHiding()
 			), @projectRingInvariantState.changedPathsUpdateDelay
 
 	runFilePatternHiding: (useFilePatternHiding) ->
@@ -222,19 +234,16 @@ module.exports =
 
 	watchProjectRingConfiguration: (watch) ->
 		return unless lib.getProjectRingId()
-		_fs = require 'fs'
 		csonFilePath = lib.getCSONFilePath()
 		if watch and csonFilePath
-			_fs.watchFile \
-				csonFilePath,
-				{ persistent: true, interval: @projectRingInvariantState.configurationFileWatchInterval },
-				(currentStat, previousStat) =>
-					if @currentlySavingConfiguration.csonFile
-						@currentlySavingConfiguration.csonFile = false
-						return
-					@setProjectRing lib.getProjectRingId(), undefined, true
+			_fs = require 'fs'
+			lib.setProjectRingConfigurationWatcher _fs.watch csonFilePath, (event, filename) =>
+				if @currentlySavingConfiguration.csonFile
+					@currentlySavingConfiguration.csonFile = false
+					return
+				@setProjectRing lib.getProjectRingId(), undefined, true
 		else
-			_fs.unwatchFile csonFilePath if csonFilePath
+			lib.unsetProjectRingConfigurationWatcher()
 
 	setProjectRing: (id, projectKeyToLoad, fromConfigWatchCallback) ->
 		@watchProjectRingConfiguration false
@@ -250,6 +259,29 @@ module.exports =
 		lib.setProjectRingId id
 		@loadProjectRing projectKeyToLoad, fromConfigWatchCallback
 		@watchProjectRingConfiguration true
+
+	filterProjectRingFilePaths: ->
+		return unless @statesCache
+		_fs = require 'fs'
+		statesCacheKeysFixed = []
+		for key in Object.keys @statesCache
+			statesCacheHasBeenFixed = false
+			projectState = @getProjectState key
+			rootDirectories = projectState.rootDirectories.filter (rootDirectory) -> _fs.existsSync rootDirectory
+			if  rootDirectories.length isnt projectState.rootDirectories.length
+				projectState.rootDirectories = rootDirectories
+				statesCacheHasBeenFixed = true
+			openFilePaths = projectState.files.open.filter (openFilePath) -> _fs.existsSync openFilePath
+			if  openFilePaths.length isnt projectState.files.open.length
+				projectState.files.open = openFilePaths
+				statesCacheHasBeenFixed = true
+			bannedFilePaths = projectState.files.banned.filter (bannedFilePath) -> _fs.existsSync bannedFilePath
+			if  bannedFilePaths.length isnt projectState.files.banned.length
+				projectState.files.banned = bannedFilePaths
+				statesCacheHasBeenFixed = true
+			statesCacheKeysFixed.push key if statesCacheHasBeenFixed
+		@saveProjectRing() if statesCacheKeysFixed.length
+		statesCacheKeysFixed
 
 	loadProjectRing: (projectKeyToLoad, fromConfigWatchCallback) ->
 		return unless lib.getProjectRingId()
@@ -287,7 +319,6 @@ module.exports =
 					}
 				@statesCache = statesCacheTmp
 				@saveProjectRing()
-				_fs = require 'fs'
 				try
 					pathFilePath = lib.getConfigurationFilePath 'default_project_ring_path.txt'
 					_fs.unlinkSync pathFilePath if _fs.existsSync pathFilePath
@@ -295,6 +326,7 @@ module.exports =
 			# END: TRANSITIONAL CODE TO MIGRATE THE PROJECT SPECIFICATION TO THE NEW FORMAT
 			projectToLoad = undefined
 			unless fromConfigWatchCallback
+				@filterProjectRingFilePaths()
 				rootDirectoriesSpec = atom.project.getPaths().map((path) -> path.toLowerCase().trim()).sort().join ''
 				if rootDirectoriesSpec
 					for key in Object.keys @statesCache
@@ -361,7 +393,7 @@ module.exports =
 		return @currentProjectState
 
 	addOpenFilePathToProject: (openFilePathToAdd, manually, omitNotification) ->
-		return unless @checkIfInProject not manually
+		return unless @checkIfInProject not manually or omitNotification
 		deferedAddition = if openFilePathToAdd and not manually then true else false
 		openFilePathToAdd = atom.workspace.getActiveTextEditor()?.buffer.file?.path unless openFilePathToAdd
 		return unless openFilePathToAdd
@@ -406,7 +438,7 @@ module.exports =
 			@projectRingNotification.notify \
 				'File "' + require('path').basename(openFilePathToBan) + '" has been banned from project "'+ @currentProjectState.key + '"'
 
-	alwaysOpenFilePath: (filePathToAlwaysOpen) ->
+	alwaysOpenFilePath: (filePathToAlwaysOpen, omitNotification) ->
 		filePathToAlwaysOpen = atom.workspace.getActiveTextEditor()?.buffer.file?.path unless filePathToAlwaysOpen
 		filePathToAlwaysOpenProxy = filePathToAlwaysOpen?.toLowerCase()
 		defaultProjectState = @getProjectState lib.defaultProjectCacheKey
@@ -420,7 +452,8 @@ module.exports =
 				lib.filterFromArray projectState.files.open, filePathToAlwaysOpenProxy, String.prototype.toLowerCase
 		defaultProjectState.files.open.push filePathToAlwaysOpen
 		@saveProjectRing()
-		@projectRingNotification.notify 'File "' + require('path').basename(filePathToAlwaysOpen) + '" has been marked to always open'
+		if omitNotification ? true
+			@projectRingNotification.notify 'File "' + require('path').basename(filePathToAlwaysOpen) + '" has been marked to always open'
 
 	add: (options) ->
 		options = options or {}
@@ -498,7 +531,7 @@ module.exports =
 		else
 			@loadProjectRingView()
 			@projectRingView.attach {
-				viewMode: if not openProjectFilesOnly then 'project' else 'project-files',
+				viewMode: 'project',
 				currentItem: @checkIfInProject()
 				openProjectFilesOnly: openProjectFilesOnly
 				placeholderText:
@@ -556,12 +589,13 @@ module.exports =
 			@projectRingFileSelectView.attach { viewMode: 'add', confirmValue: 'Add' }, fileSpecsToOfferForAddition
 
 	fixOpenFilesToCurrentProjectAssociations: ->
-		return unless @checkIfInProject() and not atom.config.get 'project-ring.doNotSaveAndRestoreOpenProjectFiles'
+		return false unless @checkIfInProject() and not atom.config.get 'project-ring.doNotSaveAndRestoreOpenProjectFiles'
 		filePathsToAlwaysOpen = @getProjectState(lib.defaultProjectCacheKey).files.open.map (openFilePath) -> openFilePath.toLowerCase()
 		projectRelatedFilePaths = {}
 		Object.keys(@statesCache).filter((key) -> key isnt lib.defaultProjectCacheKey).forEach (key) =>
 			@getProjectState(key).files.open.forEach (openFilePath) -> projectRelatedFilePaths[openFilePath.toLowerCase()] = null
 		projectRelatedFilePaths = Object.keys projectRelatedFilePaths
+		associationsFixed = false
 		atom.project.buffers.filter((buffer) =>
 			bufferPath = buffer.file?.path.toLowerCase()
 			bufferPath and
@@ -572,6 +606,7 @@ module.exports =
 			bufferFilePathProxy = buffer.file.path.toLowerCase()
 			if lib.filePathIsInProject bufferFilePathProxy
 				@addOpenFilePathToProject buffer.file.path, true, true
+				associationsFixed = true
 		###
 		currentProjectRelatedFilePaths = @currentProjectState.files.open.map (filePath) -> filePath.toLowerCase()
 		currentProjectRelatedFilePaths.forEach (filePath) =>
@@ -579,6 +614,7 @@ module.exports =
 				@currentProjectState.files.open = lib.filterFromArray @currentProjectState.files.open, filePath.toLowerCase(), String.prototype.toLowerCase
 		@saveProjectRing() if @currentProjectState.files.open.length isnt currentProjectRelatedFilePaths.length
 		###
+		associationsFixed
 
 	banFilesFromProject: ->
 		return unless @checkIfInProject false
@@ -621,6 +657,8 @@ module.exports =
 				atom.packages.getLoadedPackage('tree-view')?.mainModule?.treeView?.detach?()
 			catch
 			@currentlySettingProjectRootDirectories = true
+			atom.project.rootDirectories.filter((rootDirectory) -> rootDirectory.projectRingFSWatcher).forEach (rootDirectory) ->
+				rootDirectory.projectRingFSWatcher.close()
 			atom.project.setPaths []
 			@currentlySettingProjectRootDirectories = false
 		@currentProjectState = undefined
@@ -713,9 +751,17 @@ module.exports =
 				options.projectState.key is oldKey and
 				not options.isAsynchronousProjectPathChange
 					@currentlySettingProjectRootDirectories = true
+					atom.project.rootDirectories.filter((rootDirectory) -> rootDirectory.projectRingFSWatcher).forEach (rootDirectory) ->
+						rootDirectory.projectRingFSWatcher.close()
 					treeView = atom.packages.getLoadedPackage 'tree-view'
 					lib.onceChangedPaths =>
 						@currentlySettingProjectRootDirectories = false
+						atom.project.rootDirectories.forEach (rootDirectory) =>
+							_fs = require('fs')
+							rootDirectory.projectRingFSWatcher = _fs.watch rootDirectory.path, (event, filename) =>
+								return unless event is 'rename'
+								@add updateRootDirectoriesAndTreeViewStateOnly: true
+								@runFilePatternHiding()
 						treeView?.mainModule.treeView?.show?()
 						setTimeout (=>
 							treeView?.mainModule.treeView?.updateRoots? options.projectState.treeViewState.directoryExpansionStates or null

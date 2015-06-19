@@ -93,6 +93,7 @@ setupPreSetEventHandling = ->
 regExpEscapesRegExp = /[\$\^\*\(\)\[\]\{\}\|\\\.\?\+]/g
 defaultProjectRingId = 'default'
 projectRingId = undefined
+projectRingConfigurationWatcher = undefined
 
 module.exports = Object.freeze
 	#############################
@@ -166,6 +167,14 @@ module.exports = Object.freeze
 			_fs.writeFileSync defaultProjectToLoadAtStartUpFilePath, key, 'utf8'
 		catch error
 			return error
+
+	setProjectRingConfigurationWatcher: (watcher) ->
+		projectRingConfigurationWatcher = watcher
+		undefined
+
+	unsetProjectRingConfigurationWatcher: ->
+		projectRingConfigurationWatcher?.close()
+		projectRingConfigurationWatcher = undefined
 
 	updateDefaultProjectConfiguration: (selectedProject, allProjects, oldSelectedProjectCondition, oldSelectedProject) ->
 		selectedProject = '' unless selectedProject and typeof selectedProject is 'string'
