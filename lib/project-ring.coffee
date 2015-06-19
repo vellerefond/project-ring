@@ -111,6 +111,7 @@ module.exports =
 					=>
 						return unless bufferDestroyed.file
 						setTimeout (=>
+							bufferDestroyed.projectRingFSWatcher.close() if bufferDestroyed.projectRingFSWatcher
 							bufferDestroyedPathProxy = bufferDestroyed.file.path.toLowerCase()
 							defaultProjectState = @getProjectState lib.defaultProjectCacheKey
 							if lib.findInArray defaultProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
@@ -131,6 +132,20 @@ module.exports =
 					setTimeout (=>
 						lib.offDestroyedBuffer openProjectBuffer unless deferedManualSetup
 						lib.onceDestroyedBuffer openProjectBuffer, onBufferDestroyedProjectRingEventHandlerFactory openProjectBuffer
+						_fs = require('fs')
+						openProjectBufferFilePath = openProjectBuffer.file.path
+						openProjectBuffer.projectRingFSWatcher = _fs.watch openProjectBuffer.file.path, (event, filename) =>
+							setTimeout (=>
+								return unless event is 'rename'
+								affectedProjectKeys = @filterProjectRingFilePaths()
+								if lib.defaultProjectCacheKey in affectedProjectKeys
+									openProjectBuffer.projectRingFSWatcher.close() unless @fixOpenFilesToCurrentProjectAssociations()
+									@projectRingNotification.warn 'File "' + openProjectBufferFilePath + '" has been removed from the list of files to always open'
+								else if not @fixOpenFilesToCurrentProjectAssociations()
+									openProjectBuffer.projectRingFSWatcher.close()
+									@projectRingNotification.warn 'File "' + openProjectBufferFilePath + '" has been removed from the current project'
+								openProjectBufferFilePath = openProjectBuffer.file.path
+							), @projectRingInvariantState.changedPathsUpdateDelay
 						if atom.config.get 'project-ring.keepAllOpenFilesRegardlessOfProject'
 							@alwaysOpenFilePath openProjectBuffer.file.path, true
 							return
@@ -157,6 +172,7 @@ module.exports =
 			setTimeout (=>
 				return unless @checkIfInProject() and not @currentlySettingProjectRootDirectories
 				@add updateRootDirectoriesAndTreeViewStateOnly: true
+				@runFilePatternHiding()
 			), @projectRingInvariantState.changedPathsUpdateDelay
 
 	runFilePatternHiding: (useFilePatternHiding) ->
@@ -573,12 +589,13 @@ module.exports =
 			@projectRingFileSelectView.attach { viewMode: 'add', confirmValue: 'Add' }, fileSpecsToOfferForAddition
 
 	fixOpenFilesToCurrentProjectAssociations: ->
-		return unless @checkIfInProject() and not atom.config.get 'project-ring.doNotSaveAndRestoreOpenProjectFiles'
+		return false unless @checkIfInProject() and not atom.config.get 'project-ring.doNotSaveAndRestoreOpenProjectFiles'
 		filePathsToAlwaysOpen = @getProjectState(lib.defaultProjectCacheKey).files.open.map (openFilePath) -> openFilePath.toLowerCase()
 		projectRelatedFilePaths = {}
 		Object.keys(@statesCache).filter((key) -> key isnt lib.defaultProjectCacheKey).forEach (key) =>
 			@getProjectState(key).files.open.forEach (openFilePath) -> projectRelatedFilePaths[openFilePath.toLowerCase()] = null
 		projectRelatedFilePaths = Object.keys projectRelatedFilePaths
+		associationsFixed = false
 		atom.project.buffers.filter((buffer) =>
 			bufferPath = buffer.file?.path.toLowerCase()
 			bufferPath and
@@ -589,6 +606,7 @@ module.exports =
 			bufferFilePathProxy = buffer.file.path.toLowerCase()
 			if lib.filePathIsInProject bufferFilePathProxy
 				@addOpenFilePathToProject buffer.file.path, true, true
+				associationsFixed = true
 		###
 		currentProjectRelatedFilePaths = @currentProjectState.files.open.map (filePath) -> filePath.toLowerCase()
 		currentProjectRelatedFilePaths.forEach (filePath) =>
@@ -596,6 +614,7 @@ module.exports =
 				@currentProjectState.files.open = lib.filterFromArray @currentProjectState.files.open, filePath.toLowerCase(), String.prototype.toLowerCase
 		@saveProjectRing() if @currentProjectState.files.open.length isnt currentProjectRelatedFilePaths.length
 		###
+		associationsFixed
 
 	banFilesFromProject: ->
 		return unless @checkIfInProject false
@@ -638,6 +657,8 @@ module.exports =
 				atom.packages.getLoadedPackage('tree-view')?.mainModule?.treeView?.detach?()
 			catch
 			@currentlySettingProjectRootDirectories = true
+			atom.project.rootDirectories.filter((rootDirectory) -> rootDirectory.projectRingFSWatcher).forEach (rootDirectory) ->
+				rootDirectory.projectRingFSWatcher.close()
 			atom.project.setPaths []
 			@currentlySettingProjectRootDirectories = false
 		@currentProjectState = undefined
@@ -730,9 +751,17 @@ module.exports =
 				options.projectState.key is oldKey and
 				not options.isAsynchronousProjectPathChange
 					@currentlySettingProjectRootDirectories = true
+					atom.project.rootDirectories.filter((rootDirectory) -> rootDirectory.projectRingFSWatcher).forEach (rootDirectory) ->
+						rootDirectory.projectRingFSWatcher.close()
 					treeView = atom.packages.getLoadedPackage 'tree-view'
 					lib.onceChangedPaths =>
 						@currentlySettingProjectRootDirectories = false
+						atom.project.rootDirectories.forEach (rootDirectory) =>
+							_fs = require('fs')
+							rootDirectory.projectRingFSWatcher = _fs.watch rootDirectory.path, (event, filename) =>
+								return unless event is 'rename'
+								@add updateRootDirectoriesAndTreeViewStateOnly: true
+								@runFilePatternHiding()
 						treeView?.mainModule.treeView?.show?()
 						setTimeout (=>
 							treeView?.mainModule.treeView?.updateRoots? options.projectState.treeViewState.directoryExpansionStates or null
