@@ -90,29 +90,102 @@ module.exports = {
 			});
 		}
 
-		_mappableFilePaths = [ 'C:\\Users\\sdesyllas\\.atom-project-ring\\default_project_ring.cson' ];
+		_mappableFilePaths = [ 'C:\\Users\\sdesyllas\\.atom\\packages\\project-ring\\tmp\\pane-mapping.js' ];
+		_map = JSON.parse(unescape("%7B%22type%22%3A%22axis%22%2C%22children%22%3A%5B%7B%22type%22%3A%22pane%22%2C%22filePaths%22%3A%5B%22C%3A%5C%5CUsers%5C%5Csdesyllas%5C%5C.atom%5C%5Cpackages%5C%5Cproject-ring%5C%5Ctmp%5C%5Cpane-mapping.js%22%5D%7D%2C%7B%22type%22%3A%22axis%22%2C%22children%22%3A%5B%7B%22type%22%3A%22axis%22%2C%22children%22%3A%5B%7B%22type%22%3A%22pane%22%2C%22filePaths%22%3A%5B%22C%3A%5C%5CUsers%5C%5Csdesyllas%5C%5C.atom%5C%5Cpackages%5C%5Cproject-ring%5C%5Ctmp%5C%5Cpane-mapping.js%22%5D%7D%2C%7B%22type%22%3A%22pane%22%2C%22filePaths%22%3A%5B%22C%3A%5C%5CUsers%5C%5Csdesyllas%5C%5C.atom%5C%5Cpackages%5C%5Cproject-ring%5C%5Ctmp%5C%5Cpane-mapping.js%22%5D%7D%5D%2C%22orientation%22%3A%22horizontal%22%7D%2C%7B%22type%22%3A%22pane%22%2C%22filePaths%22%3A%5B%22C%3A%5C%5CUsers%5C%5Csdesyllas%5C%5C.atom%5C%5Cpackages%5C%5Cproject-ring%5C%5Ctmp%5C%5Cpane-mapping.js%22%5D%7D%5D%2C%22orientation%22%3A%22vertical%22%7D%2C%7B%22type%22%3A%22pane%22%2C%22filePaths%22%3A%5B%22C%3A%5C%5CUsers%5C%5Csdesyllas%5C%5C.atom%5C%5Cpackages%5C%5Cproject-ring%5C%5Ctmp%5C%5Cpane-mapping.js%22%5D%7D%5D%2C%22orientation%22%3A%22horizontal%22%7D"));
 
 		buildPanesMap = function(mappableFilePaths) {
-			mappableFilePaths = _mappableFilePaths;
-			var panesMap = { type: 'axis', children: [] }, currentNode = panesMap;
+			mappableFilePaths = mappableFilePaths instanceof Array ? mappableFilePaths : [];
 
-			if (panes.length == 1) {
-				return { type: 'pane', filePaths: [ mappableFilePaths ] };
-			}
+			var panesMap = { root: {} }, currentNode = panesMap.root;
 
-			var isHorizontalAxis;
-
-			function _fillPanesMap($axis) {
-				var $children = $axis.children();
-
-				$.each($children, function($child) {
-					currentNode.panes.push($pane[0]);
+			function _getPaneMappableFilePaths($pane, mappableFilePaths) {
+				var pane = atom.workspace.getPanes().filter(function(pane) {
+					return atom.views.getView(pane) === $pane[0];
+				})[0];
+				if (!pane) {
+					return [];
+				}
+				return pane.getItems().filter(function(item) {
+					return item.buffer && item.buffer.file && mappableFilePaths.some(function(filePath) { return filePath === item.buffer.file.path; });
+				}).map(function(textEditor) {
+					return textEditor.buffer.file.path;
 				});
 			}
 
-			_fillPanesMap($('atom-pane-container > atom-pane-axis'));
+			function _fillPanesMap($axis, currentNode) {
+				if (!$axis.length) {
+					currentNode.type = 'pane';
+					currentNode.filePaths = _getPaneMappableFilePaths($axis, mappableFilePaths);
+					return;
+				}
+				var $axisChildren = $axis.children('atom-pane-axis, atom-pane');
+				var isHorizontalAxis = $axis.is('.horizontal');
+				currentNode.type = 'axis';
+				currentNode.children = [];
+				currentNode.orientation = isHorizontalAxis ? 'horizontal' : 'vertical';
+				$axisChildren.each(function() {
+					var $child = $(this);
+					if ($child.is('atom-pane-axis')) {
+						currentNode.children.push({ type: 'axis', children: [], orientation: null });
+					} else if ($child.is('atom-pane')) {
+						currentNode.children.push({ type: 'pane', filePaths: _getPaneMappableFilePaths($child, mappableFilePaths) });
+					}
+				});
+				currentNode.children.forEach(function(child, index) {
+					if (child.type === 'pane') {
+						return;
+					}
+					_fillPanesMap($($axisChildren[index]), child);
+				});
+			}
 
-			return panesMap;
+			_fillPanesMap($('atom-pane-container > atom-pane-axis'), currentNode);
+
+			return panesMap.root;
+		}
+
+		buildPanesLayout = function(panesMap) {
+			function _openPaneFiles(pane) {
+				if (!pane.filePaths.length) {
+					return;
+				}
+				for (var index = 0; index < pane.filePaths.length; index++) {
+					atom.workspace.open(pane.filePaths[index]);
+				}
+			}
+
+			if (panesMap.type === 'pane') {
+				_openPaneFiles(panesMap);
+				return;
+			}
+
+			function _buildAxisLayout(axis) {
+				var axisPaneCache = [];
+				axis.children.forEach(function(child, index) {
+					if (index > 0) {
+						if (axis.orientation === 'horizontal') {
+							atom.workspace.getActivePane().splitRight();
+						} else {
+							atom.workspace.getActivePane().splitDown();
+						}
+					}
+					if (child.type === 'axis') {
+						axisPaneCache.push(atom.workspace.getActivePane());
+					}
+					if (child.type === 'pane') {
+						_openPaneFiles(child);
+					}
+				});
+				axis.children.forEach(function(child) {
+					if (child.type === 'pane') {
+						return;
+					}
+					axisPaneCache.shift().activate();
+					_buildAxisLayout(child);
+				});
+			}
+
+			_buildAxisLayout(panesMap);
 		}
 	}
 };

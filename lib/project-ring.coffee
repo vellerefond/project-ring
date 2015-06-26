@@ -16,6 +16,7 @@ module.exports =
 		doNotSaveAndRestoreOpenProjectFiles: {
 			type: 'boolean', default: false, description: 'Do not automatically handle the save/restoration of open files for projects'
 		}
+		saveAndRestoreThePanesLayout: { type: 'boolean', default: false, description: 'Automatically save/restore the panes layout' }
 		useFilePatternHiding: { type: 'boolean', default: false, description: 'Use file name pattern hiding' }
 		useNotifications: { type: 'boolean', default: true, description: 'Use notifications for important events' }
 
@@ -35,6 +36,7 @@ module.exports =
 		lib.setupEventHandling()
 		@setupProjectRingNotification()
 		@setupAutomaticProjectFileSaving()
+		@setupAutomaticPanesLayoutSaving()
 		@setupAutomaticRootDirectoryAndTreeViewStateSaving()
 		atom.config.observe 'project-ring.makeTheCurrentProjectTheDefaultAtStartUp', (makeTheCurrentProjectTheDefaultAtStartUp) =>
 			return unless makeTheCurrentProjectTheDefaultAtStartUp and @currentProjectState
@@ -166,6 +168,16 @@ module.exports =
 			{ $ } = require 'atom-space-pen-views'
 			$('.tab-bar').on 'drop', => setTimeout (=> @add updateOpenFilePathPositionsOnly: true), 0
 		), 0
+
+	setupAutomaticPanesLayoutSaving: ->
+		atom.config.observe 'project-ring.saveAndRestoreThePanesLayout', (saveAndRestoreThePanesLayout) =>
+			onPanesLayoutChanged = => @savePanesLayout()
+			if saveAndRestoreThePanesLayout
+				lib.onAddedPane onPanesLayoutChanged
+				lib.onDestroyedPane onPanesLayoutChanged
+			else
+				lib.offAddedPane()
+				lib.offDestroyedPane()
 
 	setupAutomaticRootDirectoryAndTreeViewStateSaving: ->
 		lib.onChangedPaths (rootDirectories) =>
@@ -415,6 +427,7 @@ module.exports =
 						openFilePathInAll.toLowerCase() is openFilePathToAdd or
 						lib.findInArray @currentProjectState.files.open, openFilePathInAll.toLowerCase(), String.prototype.toLowerCase
 					@currentProjectState.files.open = newOpenFilePaths
+					# TODO: save the panes layout
 					@saveProjectRing()
 					if manually and (typeof omitNotification is 'undefined' or not omitNotification)
 						@projectRingNotification.notify \
@@ -434,6 +447,7 @@ module.exports =
 			@currentProjectState.files.open =
 				lib.filterFromArray @currentProjectState.files.open, openFilePathToBanProxy, String.prototype.toLowerCase
 			@currentProjectState.files.banned.push openFilePathToBan
+			# TODO: save the panes layout
 			@saveProjectRing()
 			@projectRingNotification.notify \
 				'File "' + require('path').basename(openFilePathToBan) + '" has been banned from project "'+ @currentProjectState.key + '"'
@@ -451,6 +465,7 @@ module.exports =
 			projectState.files.open =
 				lib.filterFromArray projectState.files.open, filePathToAlwaysOpenProxy, String.prototype.toLowerCase
 		defaultProjectState.files.open.push filePathToAlwaysOpen
+		# TODO: save the panes layout
 		@saveProjectRing()
 		if omitNotification ? true
 			@projectRingNotification.notify 'File "' + require('path').basename(filePathToAlwaysOpen) + '" has been marked to always open'
@@ -470,6 +485,7 @@ module.exports =
 			return unless @checkIfInProject()
 			currentProjectOpenFilePaths = @currentProjectState.files.open.map (openFilePath) -> openFilePath.toLowerCase()
 			@currentProjectState.files.open = @getOpenFilePaths().filter (openFilePath) -> openFilePath.toLowerCase() in currentProjectOpenFilePaths
+			# TODO: save the panes layout
 			@saveProjectRing()
 			return
 		key = lib.getProjectKey options.key or @currentProjectState?.key or 'Project'
@@ -509,6 +525,7 @@ module.exports =
 			treeViewState: treeViewState
 		}
 		@setProjectState key, @currentProjectState
+		# TODO: save the panes layout
 		@saveProjectRing()
 		lib.updateDefaultProjectConfiguration key, Object.keys(@statesCache), true, key
 		@projectRingNotification.notify 'Project "' + key + '" has been created/updated'
@@ -519,6 +536,13 @@ module.exports =
 		unless @projectRingInputView.isVisible()
 			if @currentProjectState then key = @currentProjectState.key else key = undefined
 			@projectRingInputView.attach { viewMode: 'project', renameOnly: renameOnly }, 'Project name', key
+
+	savePanesLayout: ->
+		return unless @checkIfInProject() and atom.config.get('project-ring.saveAndRestoreThePanesLayout') and not @currentlyRestoringPanesLayout
+		# TODO: implement saving the panes layout
+		setTimeout (=>
+			console.debug lib.buildPanesMap @currentProjectState.files.open
+		), 0
 
 	toggle: (openProjectFilesOnly) ->
 		deleteKeyBinding = lib.findInArray atom.keymaps.getKeyBindings(), 'project-ring:add', -> @.command
@@ -808,6 +832,7 @@ module.exports =
 				lib.destroyEmptyPanes()
 				lib.selectFirstNonEmptyPane()
 				lib.onceAddedBuffer removeEmptyBuffers
+				# TODO: restore the panes layout ?
 				lib.openFiles filePath for filePath in filesToOpen
 		else if atom.config.get 'project-ring.closePreviousProjectFiles'
 			removeEmptyBuffers()

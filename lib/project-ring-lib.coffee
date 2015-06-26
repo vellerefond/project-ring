@@ -1,5 +1,3 @@
-{ TextEditor } = require 'atom'
-
 projectReceiverKey = Symbol 'projectReceiverKey'
 workspaceReceiverKey = Symbol 'workspaceReceiverKey'
 permanentEventKey = Symbol 'permanentEventKey'
@@ -233,6 +231,10 @@ module.exports = Object.freeze
 			return true if new RegExp('^' + @turnToPathRegExp(rootDirectory), 'i').test(filePath)
 		false
 
+	##################
+	# Event Handling #
+	##################
+
 	#################################
 	# ---- Event Handling - Generic #
 	#################################
@@ -299,9 +301,33 @@ module.exports = Object.freeze
 		return unless typeof callback is 'function'
 		addEventCallback workspaceReceiverKey, addedTextEditorEventKey, true, callback
 
-	##########################
-	# ---- Pane Manipulation #
-	##########################
+	onAddedPane: (callback) ->
+		return unless typeof callback is 'function'
+		atom.workspace.paneContainer.emitter.on 'did-add-pane', callback
+		if typeof atom.workspace.paneContainer.projectRingOnAddedPaneCallback is 'function'
+			delete atom.workspace.paneContainer.projectRingOnAddedPaneCallback
+		atom.workspace.paneContainer.projectRingOnAddedPaneCallback = callback
+
+	onDestroyedPane: (callback) ->
+		return unless typeof callback is 'function'
+		atom.workspace.paneContainer.emitter.on 'did-destroy-pane', callback
+		if typeof atom.workspace.paneContainer.projectRingOnDestroyedPaneCallback is 'function'
+			delete atom.workspace.paneContainer.projectRingOnDestroyedPaneCallback
+		atom.workspace.paneContainer.projectRingOnDestroyedPaneCallback = callback
+
+	offAddedPane: () ->
+		return unless typeof atom.workspace.paneContainer.projectRingOnAddedPaneCallback is 'function'
+		atom.workspace.paneContainer.emitter.off 'did-add-pane', atom.workspace.paneContainer.projectRingOnAddedPaneCallback
+		delete atom.workspace.paneContainer.projectRingOnAddedPaneCallback
+
+	offDestroyedPane: () ->
+		return unless typeof atom.workspace.paneContainer.projectRingOnDestroyedPaneCallback is 'function'
+		atom.workspace.paneContainer.emitter.off 'did-destroy-pane', atom.workspace.paneContainer.projectRingOnDestroyedPaneCallback
+		delete atom.workspace.paneContainer.projectRingOnDestroyedPaneCallback
+
+	#####################
+	# Pane Manipulation #
+	#####################
 
 	getFirstNonEmptyPane: ->
 		atom.workspace.getPanes().filter((pane) -> pane.getItems().length)[0]
@@ -317,6 +343,7 @@ module.exports = Object.freeze
 		firstNonEmptyPane
 
 	moveAllEditorsToFirstNonEmptyPane: ->
+		{ TextEditor } = require 'atom'
 		firstNonEmptyPane = @getFirstNonEmptyPane()
 		@getRestPanes().forEach (pane) ->
 			pane.getItems().forEach (item) ->
@@ -338,11 +365,70 @@ module.exports = Object.freeze
 			pane.destroy() unless pane.items.length
 
 	destroyRestPanes: (allowEditorDestructionEvent) ->
+		{ TextEditor } = require 'atom'
 		@getRestPanes().forEach (pane) ->
 			pane.getItems().forEach (item) ->
 				return unless item instanceof TextEditor
 				item.emitter.off 'did-destroy' unless allowEditorDestructionEvent
 			pane.destroy()
+
+	buildPanesMap: (mappableFilePaths) ->
+		{ $ } = require 'atom-space-pen-views'
+		mappableFilePaths = if mappableFilePaths instanceof Array then mappableFilePaths else []
+		panesMap = { root: {} }
+		currentNode = panesMap.root
+		_getPaneMappableFilePaths = ($pane, mappableFilePaths) ->
+			pane = atom.workspace.getPanes().filter((pane) -> atom.views.getView(pane) is $pane[0])[0]
+			return [] unless pane
+			return pane
+				.getItems()
+				.filter((item) -> item.buffer && item.buffer.file && mappableFilePaths.some((filePath) -> filePath is item.buffer.file.path))
+				.map (textEditor) -> textEditor.buffer.file.path
+		_fillPanesMap = ($axis, currentNode) ->
+			unless $axis.length
+				currentNode.type = 'pane'
+				currentNode.filePaths = _getPaneMappableFilePaths $('atom-pane-container > atom-pane'), mappableFilePaths
+				return
+			$axisChildren = $axis.children 'atom-pane-axis, atom-pane'
+			isHorizontalAxis = $axis.is '.horizontal'
+			currentNode.type = 'axis'
+			currentNode.children = []
+			currentNode.orientation = if isHorizontalAxis then 'horizontal' else 'vertical'
+			$axisChildren.each ->
+				$child = $ this
+				if $child.is 'atom-pane-axis'
+					currentNode.children.push type: 'axis', children: [], orientation: null
+				else if $child.is 'atom-pane'
+					currentNode.children.push type: 'pane', filePaths: _getPaneMappableFilePaths $child, mappableFilePaths
+			currentNode.children.forEach (child, index) ->
+				return unless child.type is 'axis'
+				_fillPanesMap $($axisChildren[index]), child
+		_fillPanesMap $('atom-pane-container > atom-pane-axis'), currentNode
+		panesMap.root
+
+	buildPanesLayout: (panesMap) ->
+		_openPaneFiles = (pane) ->
+			return unless pane.filePaths.length
+			atom.workspace.open filePath for filePath in pane.filePaths
+		if panesMap.type is 'pane'
+			_openPaneFiles panesMap
+			return
+		_buildAxisLayout = (axis) ->
+			axisPaneCache = []
+			axis.children.forEach (child, index) ->
+				if index > 0
+					if axis.orientation is 'horizontal'
+						atom.workspace.getActivePane().splitRight()
+					else
+						atom.workspace.getActivePane().splitDown()
+				if child.type is 'axis'
+					axisPaneCache.push atom.workspace.getActivePane()
+				if child.type is 'pane'
+					_openPaneFiles child
+			axis.children.forEach (child) ->
+				return unless child.type is 'axis'
+				axisPaneCache.shift().activate()
+				_buildAxisLayout child
 
 	##################################
 	# Public Helper Functions -- END #
