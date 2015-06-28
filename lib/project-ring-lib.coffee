@@ -197,10 +197,14 @@ module.exports = Object.freeze
 	openFiles: (filePathSpec, newWindow) ->
 		filePathSpec = if filePathSpec instanceof Array then filePathSpec else [ filePathSpec ]
 		newWindow = if typeof newWindow is 'boolean' then newWindow else false
+		defer = require('q').defer()
+		defer.resolve()
+		promise = defer.promise
 		if newWindow
 			atom.open pathsToOpen: filePathSpec, newWindow: true
 		else
-			atom.workspace.open filePath for filePath in filePathSpec
+			promise = promise.finally ((filePath) -> atom.workspace.open filePath).bind null, filePath for filePath in filePathSpec
+		promise
 
 	findInArray: (array, value, valueModFunc, extraModFuncArgs) ->
 		return undefined unless array instanceof Array
@@ -305,15 +309,22 @@ module.exports = Object.freeze
 		return unless typeof callback is 'function'
 		atom.workspace.paneContainer.emitter.on 'did-add-pane', callback
 		if typeof atom.workspace.paneContainer.projectRingOnAddedPaneCallback is 'function'
-			delete atom.workspace.paneContainer.projectRingOnAddedPaneCallback
+			atom.workspace.paneContainer.emitter.off 'did-add-pane', atom.workspace.paneContainer.projectRingOnAddedPaneCallback
 		atom.workspace.paneContainer.projectRingOnAddedPaneCallback = callback
 
 	onDestroyedPane: (callback) ->
 		return unless typeof callback is 'function'
 		atom.workspace.paneContainer.emitter.on 'did-destroy-pane', callback
 		if typeof atom.workspace.paneContainer.projectRingOnDestroyedPaneCallback is 'function'
-			delete atom.workspace.paneContainer.projectRingOnDestroyedPaneCallback
+			atom.workspace.paneContainer.emitter.off 'did-destroy-pane', atom.workspace.paneContainer.projectRingOnDestroyedPaneCallback
 		atom.workspace.paneContainer.projectRingOnDestroyedPaneCallback = callback
+
+	onDestroyedPaneItem: (callback) ->
+		return unless typeof callback is 'function'
+		atom.workspace.paneContainer.emitter.on 'did-destroy-pane-item', callback
+		if typeof atom.workspace.paneContainer.projectRingOnDestroyedPaneItemCallback is 'function'
+			atom.workspace.paneContainer.emitter.off 'did-destroy-pane-item', atom.workspace.paneContainer.projectRingOnDestroyedPaneItemCallback
+		atom.workspace.paneContainer.projectRingOnDestroyedPaneItemCallback = callback
 
 	offAddedPane: () ->
 		return unless typeof atom.workspace.paneContainer.projectRingOnAddedPaneCallback is 'function'
@@ -324,6 +335,11 @@ module.exports = Object.freeze
 		return unless typeof atom.workspace.paneContainer.projectRingOnDestroyedPaneCallback is 'function'
 		atom.workspace.paneContainer.emitter.off 'did-destroy-pane', atom.workspace.paneContainer.projectRingOnDestroyedPaneCallback
 		delete atom.workspace.paneContainer.projectRingOnDestroyedPaneCallback
+
+	offDestroyedPaneItem: () ->
+		return unless typeof atom.workspace.paneContainer.projectRingOnDestroyedPaneItemCallback is 'function'
+		atom.workspace.paneContainer.emitter.off 'did-destroy-pane-item', atom.workspace.paneContainer.projectRingOnDestroyedPaneItemCallback
+		delete atom.workspace.paneContainer.projectRingOnDestroyedPaneItemCallback
 
 	#####################
 	# Pane Manipulation #
@@ -343,15 +359,14 @@ module.exports = Object.freeze
 		firstNonEmptyPane
 
 	moveAllEditorsToFirstNonEmptyPane: ->
-		{ TextEditor } = require 'atom'
 		firstNonEmptyPane = @getFirstNonEmptyPane()
 		@getRestPanes().forEach (pane) ->
 			pane.getItems().forEach (item) ->
-				return unless item instanceof TextEditor
+				return unless item.buffer
 				if item.buffer.file
 					itemBufferFilePath = item.buffer.file.path.toLowerCase()
 					if @findInArray firstNonEmptyPane.getItems(), itemBufferFilePath, (
-						-> @ instanceof TextEditor and @.buffer.file and @.buffer.file.path.toLowerCase() is itemBufferFilePath
+						-> @.buffer and @.buffer.file and @.buffer.file.path.toLowerCase() is itemBufferFilePath
 					)
 						pane.removeItem item
 						return
@@ -365,10 +380,9 @@ module.exports = Object.freeze
 			pane.destroy() unless pane.items.length
 
 	destroyRestPanes: (allowEditorDestructionEvent) ->
-		{ TextEditor } = require 'atom'
 		@getRestPanes().forEach (pane) ->
 			pane.getItems().forEach (item) ->
-				return unless item instanceof TextEditor
+				return unless item.buffer and item.buffer.file
 				item.emitter.off 'did-destroy' unless allowEditorDestructionEvent
 			pane.destroy()
 
@@ -407,28 +421,53 @@ module.exports = Object.freeze
 		panesMap.root
 
 	buildPanesLayout: (panesMap) ->
-		_openPaneFiles = (pane) ->
-			return unless pane.filePaths.length
-			atom.workspace.open filePath for filePath in pane.filePaths
-		if panesMap.type is 'pane'
-			_openPaneFiles panesMap
-			return
+		_openPaneFiles = (pane) => @openFiles pane.filePaths
+		return _openPaneFiles panesMap if panesMap.type is 'pane'
+		_q = require 'q'
 		_buildAxisLayout = (axis) ->
+			defer = _q.defer()
+			defer.resolve()
+			promise = defer.promise
 			axisPaneCache = []
 			axis.children.forEach (child, index) ->
-				if index > 0
-					if axis.orientation is 'horizontal'
-						atom.workspace.getActivePane().splitRight()
+				promise = promise.finally ((axis, child, index) ->
+					if index > 0
+						if axis.orientation is 'horizontal'
+							atom.workspace.getActivePane().splitRight()
+						else
+							atom.workspace.getActivePane().splitDown()
+					if child.type is 'axis'
+						axisPaneCache.push atom.workspace.getActivePane()
+						_defer = _q.defer()
+						_defer.resolve()
+						return _defer.promise
 					else
-						atom.workspace.getActivePane().splitDown()
-				if child.type is 'axis'
-					axisPaneCache.push atom.workspace.getActivePane()
-				if child.type is 'pane'
-					_openPaneFiles child
+						return _openPaneFiles child
+				).bind null, axis, child, index
 			axis.children.forEach (child) ->
-				return unless child.type is 'axis'
-				axisPaneCache.shift().activate()
-				_buildAxisLayout child
+				promise = promise.finally ((child) ->
+					_defer = _q.defer()
+					_defer.resolve()
+					return _defer.promise unless child.type is 'axis'
+					axisPaneCache.shift().activate()
+					_buildAxisLayout child
+				).bind null, child
+			promise
+		_buildAxisLayout panesMap
+
+	fixPanesMapFilePaths: (panesMap) ->
+		return unless panesMap and typeof panesMap is 'object' and typeof panesMap.length is 'undefined'
+		_fs = require 'fs'
+		if panesMap.type is 'pane'
+			panesMap.filePaths = panesMap.filePaths.filter (filePath) -> _fs.existsSync filePath
+			return
+		_fixPanesAxisFilePaths = (axis) ->
+			axis.children.forEach (child) ->
+				if child.type is 'pane'
+					child.filePaths = child.filePaths.filter (filePath) -> _fs.existsSync filePath
+				else
+					_fixPanesAxisFilePaths child
+		_fixPanesAxisFilePaths panesMap
 
 	##################################
 	# Public Helper Functions -- END #

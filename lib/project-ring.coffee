@@ -1,5 +1,5 @@
 lib = require './project-ring-lib'
-window.ll = lib # TODO: remove
+
 module.exports =
 	config:
 		closePreviousProjectFiles: { type: 'boolean', default: true, description: 'Close the files of other projects when switching to a project' }
@@ -16,7 +16,7 @@ module.exports =
 		doNotSaveAndRestoreOpenProjectFiles: {
 			type: 'boolean', default: false, description: 'Do not automatically handle the save/restoration of open files for projects'
 		}
-		saveAndRestoreThePanesLayout: { type: 'boolean', default: false, description: 'Automatically save/restore the panes layout' }
+		saveAndRestoreThePanesLayout: { type: 'boolean', default: true, description: 'Automatically save/restore the panes layout' }
 		useFilePatternHiding: { type: 'boolean', default: false, description: 'Use file name pattern hiding' }
 		useNotifications: { type: 'boolean', default: true, description: 'Use notifications for important events' }
 
@@ -28,6 +28,7 @@ module.exports =
 			return
 		@projectRingInvariantState = Object.freeze
 			emptyBufferDestroyDelayOnStartup: 750
+			additionDelay: 250
 			deletionDelay: 250
 			changedPathsUpdateDelay: 500
 			isInitialized: true
@@ -125,7 +126,7 @@ module.exports =
 							if lib.findInArray @currentProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
 								@currentProjectState.files.open =
 									lib.filterFromArray @currentProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
-								@saveProjectRing()
+								@mapPanesLayout => @saveProjectRing()
 						), @projectRingInvariantState.deletionDelay
 				atom.project.buffers.forEach (buffer) =>
 					lib.offDestroyedBuffer buffer
@@ -134,7 +135,7 @@ module.exports =
 					setTimeout (=>
 						lib.offDestroyedBuffer openProjectBuffer unless deferedManualSetup
 						lib.onceDestroyedBuffer openProjectBuffer, onBufferDestroyedProjectRingEventHandlerFactory openProjectBuffer
-						_fs = require('fs')
+						_fs = require 'fs'
 						openProjectBufferFilePath = openProjectBuffer.file.path
 						openProjectBuffer.projectRingFSWatcher = _fs.watch openProjectBuffer.file.path, (event, filename) =>
 							setTimeout (=>
@@ -160,24 +161,38 @@ module.exports =
 							@addOpenFilePathToProject openProjectBuffer.file.path, true, true
 					), 0
 				lib.onAddedBuffer (openProjectBuffer) =>
-					if openProjectBuffer.file
-						onAddedBufferDoSetup openProjectBuffer, false
-					else
-						lib.onceSavedBuffer openProjectBuffer, -> onAddedBufferDoSetup openProjectBuffer, true
+					setTimeout (->
+						if openProjectBuffer.file
+							onAddedBufferDoSetup openProjectBuffer, false
+						else
+							lib.onceSavedBuffer openProjectBuffer, -> onAddedBufferDoSetup openProjectBuffer, true
+					), @projectRingInvariantState.additionDelay
 		setTimeout (=>
 			{ $ } = require 'atom-space-pen-views'
-			$('.tab-bar').on 'drop', => setTimeout (=> @add updateOpenFilePathPositionsOnly: true), 0
+			$('.tab-bar').off('drop.project-ring').on 'drop.project-ring', => setTimeout (=> @add updateOpenFilePathPositionsOnly: true), 0
 		), 0
 
 	setupAutomaticPanesLayoutSaving: ->
 		atom.config.observe 'project-ring.saveAndRestoreThePanesLayout', (saveAndRestoreThePanesLayout) =>
-			onPanesLayoutChanged = => @savePanesLayout()
+			onPanesLayoutChanged = =>
+				@mapPanesLayout =>
+					@saveProjectRing()
+					setTimeout (=>
+						{ $ } = require 'atom-space-pen-views'
+						$('.tab-bar').off('drop.project-ring').on 'drop.project-ring', => setTimeout (=> @add updateOpenFilePathPositionsOnly: true), 0
+					), 0
 			if saveAndRestoreThePanesLayout
 				lib.onAddedPane onPanesLayoutChanged
 				lib.onDestroyedPane onPanesLayoutChanged
+				lib.onDestroyedPaneItem onPanesLayoutChanged
+				onPanesLayoutChanged()
 			else
 				lib.offAddedPane()
 				lib.offDestroyedPane()
+				lib.offDestroyedPaneItem()
+				return unless @checkIfInProject()
+				delete @currentProjectState.panesMap
+				@saveProjectRing()
 
 	setupAutomaticRootDirectoryAndTreeViewStateSaving: ->
 		lib.onChangedPaths (rootDirectories) =>
@@ -427,8 +442,7 @@ module.exports =
 						openFilePathInAll.toLowerCase() is openFilePathToAdd or
 						lib.findInArray @currentProjectState.files.open, openFilePathInAll.toLowerCase(), String.prototype.toLowerCase
 					@currentProjectState.files.open = newOpenFilePaths
-					# TODO: save the panes layout
-					@saveProjectRing()
+					@mapPanesLayout => @saveProjectRing()
 					if manually and (typeof omitNotification is 'undefined' or not omitNotification)
 						@projectRingNotification.notify \
 							'File "' + require('path').basename(openFilePathToAdd) + '" has been added to project "' + @currentProjectState.key + '"'
@@ -447,8 +461,7 @@ module.exports =
 			@currentProjectState.files.open =
 				lib.filterFromArray @currentProjectState.files.open, openFilePathToBanProxy, String.prototype.toLowerCase
 			@currentProjectState.files.banned.push openFilePathToBan
-			# TODO: save the panes layout
-			@saveProjectRing()
+			@mapPanesLayout => @saveProjectRing()
 			@projectRingNotification.notify \
 				'File "' + require('path').basename(openFilePathToBan) + '" has been banned from project "'+ @currentProjectState.key + '"'
 
@@ -465,8 +478,7 @@ module.exports =
 			projectState.files.open =
 				lib.filterFromArray projectState.files.open, filePathToAlwaysOpenProxy, String.prototype.toLowerCase
 		defaultProjectState.files.open.push filePathToAlwaysOpen
-		# TODO: save the panes layout
-		@saveProjectRing()
+		@mapPanesLayout => @saveProjectRing()
 		if omitNotification ? true
 			@projectRingNotification.notify 'File "' + require('path').basename(filePathToAlwaysOpen) + '" has been marked to always open'
 
@@ -485,8 +497,7 @@ module.exports =
 			return unless @checkIfInProject()
 			currentProjectOpenFilePaths = @currentProjectState.files.open.map (openFilePath) -> openFilePath.toLowerCase()
 			@currentProjectState.files.open = @getOpenFilePaths().filter (openFilePath) -> openFilePath.toLowerCase() in currentProjectOpenFilePaths
-			# TODO: save the panes layout
-			@saveProjectRing()
+			@mapPanesLayout => @saveProjectRing()
 			return
 		key = lib.getProjectKey options.key or @currentProjectState?.key or 'Project'
 		key = '...' + key.substr key.length - 97 if key.length > 100
@@ -525,8 +536,7 @@ module.exports =
 			treeViewState: treeViewState
 		}
 		@setProjectState key, @currentProjectState
-		# TODO: save the panes layout
-		@saveProjectRing()
+		@mapPanesLayout => @saveProjectRing()
 		lib.updateDefaultProjectConfiguration key, Object.keys(@statesCache), true, key
 		@projectRingNotification.notify 'Project "' + key + '" has been created/updated'
 
@@ -537,11 +547,13 @@ module.exports =
 			if @currentProjectState then key = @currentProjectState.key else key = undefined
 			@projectRingInputView.attach { viewMode: 'project', renameOnly: renameOnly }, 'Project name', key
 
-	savePanesLayout: ->
-		return unless @checkIfInProject() and atom.config.get('project-ring.saveAndRestoreThePanesLayout') and not @currentlyRestoringPanesLayout
-		# TODO: implement saving the panes layout
+	mapPanesLayout: (callback) ->
+		unless @checkIfInProject() and atom.config.get('project-ring.saveAndRestoreThePanesLayout') and not @currentlyChangingPanesLayout
+			callback() if typeof callback is 'function'
+			return
 		setTimeout (=>
-			console.debug lib.buildPanesMap @currentProjectState.files.open
+			@currentProjectState.panesMap = lib.buildPanesMap @currentProjectState.files.open
+			callback() if typeof callback is 'function'
 		), 0
 
 	toggle: (openProjectFilesOnly) ->
@@ -719,7 +731,6 @@ module.exports =
 					when 8 then @processProjectRingViewProjectDeletion selectedItem.data # alt-shift-backspace
 					when 85 then @unloadCurrentProject() # alt-shift-u
 
-
 	processProjectRingViewProjectDeletion: (projectState) ->
 		return unless projectState and @statesCache
 		projectState = @getProjectState projectState.key
@@ -764,10 +775,14 @@ module.exports =
 	processProjectRingViewProjectSelection: (options) ->
 		options = options or {}
 		return unless @getProjectState options.projectState?.key
+		usePanesMap = not options.openProjectFilesOnly and atom.config.get 'project-ring.saveAndRestoreThePanesLayout'
+		@currentlyChangingPanesLayout = true if usePanesMap
 		_fs = require 'fs'
 		options.projectState.rootDirectories = options.projectState.rootDirectories.filter (filePath) -> _fs.existsSync filePath
 		options.projectState.files.open = options.projectState.files.open.filter (filePath) -> _fs.existsSync filePath
 		options.projectState.files.banned = options.projectState.files.banned.filter (filePath) -> _fs.existsSync filePath
+		lib.fixPanesMapFilePaths options.projectState.panesMap
+		options.projectState.panesMap = type: 'pane', filePaths: options.projectState.files.open if  usePanesMap and not options.projectState.panesMap
 		@saveProjectRing()
 		oldKey = @currentProjectState?.key
 		unless options.openProjectFilesOnly
@@ -824,18 +839,20 @@ module.exports =
 			), @projectRingInvariantState.emptyBufferDestroyDelayOnStartup
 		filesCurrentlyOpen = @getOpenFilePaths().map (filePath) -> filePath.toLowerCase()
 		filesToOpen = options.projectState.files.open.filter (filePath) -> filePath.toLowerCase() not in filesCurrentlyOpen
+		filesOpenedPromise = null
 		if \
 			(options.openProjectFilesOnly or
 			 not atom.config.get 'project-ring.doNotSaveAndRestoreOpenProjectFiles') and
-			filesToOpen.length
+			(usePanesMap or filesToOpen.length)
 				lib.moveAllEditorsToFirstNonEmptyPane()
 				lib.destroyEmptyPanes()
 				lib.selectFirstNonEmptyPane()
 				lib.onceAddedBuffer removeEmptyBuffers
-				# TODO: restore the panes layout ?
-				lib.openFiles filePath for filePath in filesToOpen
+				filesOpenedPromise =  if usePanesMap then lib.buildPanesLayout(options.projectState.panesMap) else lib.openFiles filesToOpen
 		else if atom.config.get 'project-ring.closePreviousProjectFiles'
 			removeEmptyBuffers()
+		@currentlyChangingPanesLayout = false if usePanesMap
+		filesOpenedPromise.finally(=> @mapPanesLayout => @saveProjectRing()) if usePanesMap
 
 	handleProjectRingInputViewInput: (viewModeParameters, data) ->
 		switch viewModeParameters.viewMode
