@@ -16,7 +16,7 @@ module.exports =
 		doNotSaveAndRestoreOpenProjectFiles: {
 			type: 'boolean', default: false, description: 'Do not automatically handle the save/restoration of open files for projects'
 		}
-		saveAndRestoreThePanesLayout: { type: 'boolean', default: true, description: 'Automatically save/restore the panes layout' }
+		saveAndRestoreThePanesLayout: { type: 'boolean', default: false, description: 'Automatically save/restore the panes layout' }
 		useFilePatternHiding: { type: 'boolean', default: false, description: 'Use file name pattern hiding' }
 		useNotifications: { type: 'boolean', default: true, description: 'Use notifications for important events' }
 
