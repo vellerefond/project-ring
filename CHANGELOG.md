@@ -1,3 +1,9 @@
+###### 0.32.0 - Implemented the ability to choose to automatically save and restore the panes layout
+* Added a new configuration option (Save And Restore The Panes Layout) with a default value of false
+* Implemented basic pane operations such as building a map of the panes layout as well as restoring the panes layout from a panes layout map
+* Made use of the Q defered API to chain the steps of the file opening process as well as the pane layout building process
+* Implemented the addition of the necessary information in the projects state configuration file so that the pane layout can be restored
+
 ###### 0.31.0 - Implemented sanity checks and fixed the logic of the project state updates with respect to file changes
 * Added sanity check to keep only existing project file paths at startup
 * Fixed the logic of the Open Project Files command and substituted fs.[un]watchFile for fs.watch

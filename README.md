@@ -78,4 +78,6 @@
 
  - **_Do Not Save And Restore Open Project Files:_** If checked, then a project's files will not be saved in the project's state as they are opened nor will they be restored when the project is loaded.
 
+ - **_Save And Restore The Panes Layout:_** If checked the project description will also contain a map of the text editor panes. With such a map available, when selecting a project to load, the corresponding map with be used to recreate the panes layout.
+
  - **_Use Notifications:_** Turns on/off the notifications from various actions of Project Ring. Alerts are always produced, when necessary, regardless of this configuration option's value.
