@@ -219,6 +219,19 @@ module.exports = Object.freeze
 		isValidFunc = typeof valueModFunc is 'function'
 		array = array.filter (val) -> (if isValidFunc then valueModFunc.call val else val) isnt value
 
+	makeArrayElementsDistinct: (array, valueModFunc) ->
+		return array unless array instanceof Array
+		isValidFunc = typeof valueModFunc is 'function'
+		distinctElements = new Map()
+		array.forEach (val) -> distinctElements.set (if isValidFunc then valueModFunc.call val else val), val
+		array = []
+		iter = distinctElements.values()
+		iterVal = iter.next()
+		while not iterVal.done
+			array.push iterVal.value
+			iterVal = iter.next()
+		array
+
 	getProjectRootDirectories: ->
 		atom.project.getPaths()
 
@@ -410,10 +423,12 @@ module.exports = Object.freeze
 			currentNode.orientation = if isHorizontalAxis then 'horizontal' else 'vertical'
 			$axisChildren.each ->
 				$child = $ this
+				flexGrow = parseFloat $child.css 'flex-grow'
+				flexGrow = undefined if isNaN flexGrow
 				if $child.is 'atom-pane-axis'
-					currentNode.children.push type: 'axis', children: [], orientation: null
+					currentNode.children.push type: 'axis', children: [], orientation: null, flexGrow: flexGrow
 				else if $child.is 'atom-pane'
-					currentNode.children.push type: 'pane', filePaths: _getPaneMappableFilePaths $child, mappableFilePaths
+					currentNode.children.push type: 'pane', filePaths: _getPaneMappableFilePaths($child, mappableFilePaths), flexGrow: flexGrow
 			currentNode.children.forEach (child, index) ->
 				return unless child.type is 'axis'
 				_fillPanesMap $($axisChildren[index]), child
@@ -424,6 +439,7 @@ module.exports = Object.freeze
 		_openPaneFiles = (pane) => @openFiles pane.filePaths
 		return _openPaneFiles panesMap if panesMap.type is 'pane'
 		_q = require 'q'
+		{ $ } = require 'atom-space-pen-views'
 		_buildAxisLayout = (axis) ->
 			defer = _q.defer()
 			defer.resolve()
@@ -436,6 +452,12 @@ module.exports = Object.freeze
 							atom.workspace.getActivePane().splitRight()
 						else
 							atom.workspace.getActivePane().splitDown()
+					$child = $ atom.views.getView atom.workspace.getActivePane()
+					$parent = 	$child.parent 'atom-pane-axis'
+					if typeof axis.flexGrow is 'number' and isNaN parseFloat $parent.attr 'data-project-ring-flex-grow'
+						$parent.attr 'data-project-ring-flex-grow', axis.flexGrow
+					if typeof child.flexGrow is 'number' and isNaN parseFloat $child.attr 'data-project-ring-flex-grow'
+						$child.attr 'data-project-ring-flex-grow', child.flexGrow
 					if child.type is 'axis'
 						axisPaneCache.push atom.workspace.getActivePane()
 						_defer = _q.defer()
@@ -453,18 +475,33 @@ module.exports = Object.freeze
 					_buildAxisLayout child
 				).bind null, child
 			promise
-		_buildAxisLayout panesMap
+		axisLayoutBuildPromise = _buildAxisLayout panesMap
+		axisLayoutBuildPromise = axisLayoutBuildPromise.finally ->
+			setTimeout (->
+				$('atom-pane-container > atom-pane-axis atom-pane-axis, atom-pane-container > atom-pane-axis atom-pane').each ->
+					flexGrowAttr = 'data-project-ring-flex-grow'
+					$this = $ @
+					flexGrow = parseFloat $this.attr flexGrowAttr
+					$this.removeAttr flexGrowAttr
+					return if isNaN flexGrow
+					$this.css 'flex-grow', flexGrow
+			), 0
+			__defer = _q.defer()
+			__defer.resolve()
+			__defer.promise
 
 	fixPanesMapFilePaths: (panesMap) ->
 		return unless panesMap and typeof panesMap is 'object' and typeof panesMap.length is 'undefined'
 		_fs = require 'fs'
 		if panesMap.type is 'pane'
 			panesMap.filePaths = panesMap.filePaths.filter (filePath) -> _fs.existsSync filePath
+			panesMap.filePaths = @makeArrayElementsDistinct panesMap.filePaths
 			return
-		_fixPanesAxisFilePaths = (axis) ->
-			axis.children.forEach (child) ->
+		_fixPanesAxisFilePaths = (axis) =>
+			axis.children.forEach (child) =>
 				if child.type is 'pane'
 					child.filePaths = child.filePaths.filter (filePath) -> _fs.existsSync filePath
+					child.filePaths = @makeArrayElementsDistinct child.filePaths
 				else
 					_fixPanesAxisFilePaths child
 		_fixPanesAxisFilePaths panesMap
