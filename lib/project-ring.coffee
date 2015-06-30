@@ -14,9 +14,9 @@ module.exports =
 		projectToLoadAtStartUp: { type: 'string', default: '', enum: [ '' ], description: 'The project name to load at startup' }
 		###
 		doNotSaveAndRestoreOpenProjectFiles: {
-			type: 'boolean', default: false, description: 'Do not automatically handle the save/restoration of open files for projects'
+			type: 'boolean', default: false, description: 'Do not automatically handle the save and restoration of open files for projects'
 		}
-		saveAndRestoreThePanesLayout: { type: 'boolean', default: false, description: 'Automatically save/restore the panes layout' }
+		saveAndRestoreThePanesLayout: { type: 'boolean', default: false, description: 'Automatically save and restore the panes layout' }
 		useFilePatternHiding: { type: 'boolean', default: false, description: 'Use file name pattern hiding' }
 		useNotifications: { type: 'boolean', default: true, description: 'Use notifications for important events' }
 
