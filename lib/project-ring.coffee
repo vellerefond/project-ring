@@ -27,10 +27,10 @@ module.exports =
 		if @projectRingInvariantState and @projectRingInvariantState.isInitialized
 			return
 		@projectRingInvariantState = Object.freeze
-			emptyBufferDestroyDelayOnStartup: 750
-			additionDelay: 250
-			deletionDelay: 250
-			changedPathsUpdateDelay: 500
+			emptyBufferDestroyDelayOnStartup: 0
+			additionDelay: 0
+			deletionDelay: 0
+			changedPathsUpdateDelay: 0
 			isInitialized: true
 		@currentlySavingConfiguration =
 			csonFile: false
@@ -201,7 +201,7 @@ module.exports =
 				lib.offAddedPane()
 				lib.offDestroyedPane()
 				lib.offDestroyedPaneItem()
-				delete @statesCache[key].panesMap for key in Object.keys @statesCache
+				delete @statesCache[key].panesMap for key in Object.keys @statesCache if @statesCache
 				@saveProjectRing()
 			setTabBarHandlers()
 
