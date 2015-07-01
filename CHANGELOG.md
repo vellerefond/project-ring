@@ -4,6 +4,7 @@
 * Made use of the Q defered API to chain the steps of the file opening process as well as the pane layout building process
 * Implemented the addition of the necessary information in the projects state configuration file so that the pane layout can be restored
 * Implemented a basic way to save and restore the sizes of panes
+* Filtered code using setTimeout
 
 ###### 0.31.0 - Implemented sanity checks and fixed the logic of the project state updates with respect to file changes
 * Added sanity check to keep only existing project file paths at startup

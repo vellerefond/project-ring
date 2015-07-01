@@ -373,8 +373,8 @@ module.exports = Object.freeze
 
 	moveAllEditorsToFirstNonEmptyPane: ->
 		firstNonEmptyPane = @getFirstNonEmptyPane()
-		@getRestPanes().forEach (pane) ->
-			pane.getItems().forEach (item) ->
+		@getRestPanes().forEach (pane) =>
+			pane.getItems().forEach (item) =>
 				return unless item.buffer
 				if item.buffer.file
 					itemBufferFilePath = item.buffer.file.path.toLowerCase()

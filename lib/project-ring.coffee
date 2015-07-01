@@ -26,14 +26,8 @@ module.exports =
 	initialize: (state) ->
 		if @projectRingInvariantState and @projectRingInvariantState.isInitialized
 			return
-		@projectRingInvariantState = Object.freeze
-			emptyBufferDestroyDelayOnStartup: 0
-			additionDelay: 0
-			deletionDelay: 0
-			changedPathsUpdateDelay: 0
-			isInitialized: true
-		@currentlySavingConfiguration =
-			csonFile: false
+		@projectRingInvariantState = Object.freeze isInitialized: true
+		@currentlySavingConfiguration = csonFile: false
 		lib.setupEventHandling()
 		@setupProjectRingNotification()
 		@setupAutomaticProjectFileSaving()
@@ -113,60 +107,52 @@ module.exports =
 				onBufferDestroyedProjectRingEventHandlerFactory = (bufferDestroyed) =>
 					=>
 						return unless bufferDestroyed.file
-						setTimeout (=>
-							bufferDestroyed.projectRingFSWatcher.close() if bufferDestroyed.projectRingFSWatcher
-							bufferDestroyedPathProxy = bufferDestroyed.file.path.toLowerCase()
-							defaultProjectState = @getProjectState lib.defaultProjectCacheKey
-							if lib.findInArray defaultProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
-								defaultProjectState.files.open =
-									lib.filterFromArray defaultProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
-								@saveProjectRing()
-								return
-							return unless @checkIfInProject()
-							if lib.findInArray @currentProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
-								@currentProjectState.files.open =
-									lib.filterFromArray @currentProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
-								@mapPanesLayout => @saveProjectRing()
-						), @projectRingInvariantState.deletionDelay
+						bufferDestroyed.projectRingFSWatcher.close() if bufferDestroyed.projectRingFSWatcher
+						bufferDestroyedPathProxy = bufferDestroyed.file.path.toLowerCase()
+						defaultProjectState = @getProjectState lib.defaultProjectCacheKey
+						if lib.findInArray defaultProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
+							defaultProjectState.files.open =
+								lib.filterFromArray defaultProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
+							@saveProjectRing()
+							return
+						return unless @checkIfInProject()
+						if lib.findInArray @currentProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
+							@currentProjectState.files.open =
+								lib.filterFromArray @currentProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
+							@mapPanesLayout => @saveProjectRing()
 				atom.project.buffers.forEach (buffer) =>
 					lib.offDestroyedBuffer buffer
 					lib.onceDestroyedBuffer buffer, onBufferDestroyedProjectRingEventHandlerFactory buffer
 				onAddedBufferDoSetup = (openProjectBuffer, deferedManualSetup) =>
-					setTimeout (=>
-						lib.offDestroyedBuffer openProjectBuffer unless deferedManualSetup
-						lib.onceDestroyedBuffer openProjectBuffer, onBufferDestroyedProjectRingEventHandlerFactory openProjectBuffer
-						_fs = require 'fs'
+					lib.offDestroyedBuffer openProjectBuffer unless deferedManualSetup
+					lib.onceDestroyedBuffer openProjectBuffer, onBufferDestroyedProjectRingEventHandlerFactory openProjectBuffer
+					_fs = require 'fs'
+					openProjectBufferFilePath = openProjectBuffer.file.path
+					openProjectBuffer.projectRingFSWatcher = _fs.watch openProjectBuffer.file.path, (event, filename) =>
+						return unless event is 'rename'
+						affectedProjectKeys = @filterProjectRingFilePaths()
+						if lib.defaultProjectCacheKey in affectedProjectKeys
+							openProjectBuffer.projectRingFSWatcher.close() unless @fixOpenFilesToCurrentProjectAssociations()
+							@projectRingNotification.warn 'File "' + openProjectBufferFilePath + '" has been removed from the list of files to always open'
+						else if not @fixOpenFilesToCurrentProjectAssociations()
+							openProjectBuffer.projectRingFSWatcher.close()
+							@projectRingNotification.warn 'File "' + openProjectBufferFilePath + '" has been removed from the current project'
 						openProjectBufferFilePath = openProjectBuffer.file.path
-						openProjectBuffer.projectRingFSWatcher = _fs.watch openProjectBuffer.file.path, (event, filename) =>
-							setTimeout (=>
-								return unless event is 'rename'
-								affectedProjectKeys = @filterProjectRingFilePaths()
-								if lib.defaultProjectCacheKey in affectedProjectKeys
-									openProjectBuffer.projectRingFSWatcher.close() unless @fixOpenFilesToCurrentProjectAssociations()
-									@projectRingNotification.warn 'File "' + openProjectBufferFilePath + '" has been removed from the list of files to always open'
-								else if not @fixOpenFilesToCurrentProjectAssociations()
-									openProjectBuffer.projectRingFSWatcher.close()
-									@projectRingNotification.warn 'File "' + openProjectBufferFilePath + '" has been removed from the current project'
-								openProjectBufferFilePath = openProjectBuffer.file.path
-							), @projectRingInvariantState.changedPathsUpdateDelay
-						if atom.config.get 'project-ring.keepAllOpenFilesRegardlessOfProject'
-							@alwaysOpenFilePath openProjectBuffer.file.path, true
-							return
-						return unless \
-							atom.config.get('project-ring.keepOutOfPathOpenFilesInCurrentProject') or
-							lib.filePathIsInProject openProjectBuffer.file.path
-						unless deferedManualSetup
-							@addOpenFilePathToProject openProjectBuffer.file.path
-						else
-							@addOpenFilePathToProject openProjectBuffer.file.path, true, true
-					), 0
+					if atom.config.get 'project-ring.keepAllOpenFilesRegardlessOfProject'
+						@alwaysOpenFilePath openProjectBuffer.file.path, true
+						return
+					return unless \
+						atom.config.get('project-ring.keepOutOfPathOpenFilesInCurrentProject') or
+						lib.filePathIsInProject openProjectBuffer.file.path
+					unless deferedManualSetup
+						@addOpenFilePathToProject openProjectBuffer.file.path
+					else
+						@addOpenFilePathToProject openProjectBuffer.file.path, true, true
 				lib.onAddedBuffer (openProjectBuffer) =>
-					setTimeout (->
-						if openProjectBuffer.file
-							onAddedBufferDoSetup openProjectBuffer, false
-						else
-							lib.onceSavedBuffer openProjectBuffer, -> onAddedBufferDoSetup openProjectBuffer, true
-					), @projectRingInvariantState.additionDelay
+					if openProjectBuffer.file
+						onAddedBufferDoSetup openProjectBuffer, false
+					else
+						lib.onceSavedBuffer openProjectBuffer, -> onAddedBufferDoSetup openProjectBuffer, true
 
 	setupAutomaticPanesLayoutSaving: ->
 		atom.config.observe 'project-ring.saveAndRestoreThePanesLayout', (saveAndRestoreThePanesLayout) =>
@@ -211,7 +197,7 @@ module.exports =
 				return unless @checkIfInProject() and not @currentlySettingProjectRootDirectories
 				@add updateRootDirectoriesAndTreeViewStateOnly: true
 				@runFilePatternHiding()
-			), @projectRingInvariantState.changedPathsUpdateDelay
+			), 0
 
 	runFilePatternHiding: (useFilePatternHiding) ->
 		setTimeout (=>
@@ -826,7 +812,7 @@ module.exports =
 						 atom.config.get 'core.destroyEmptyPanes')
 					lib.offDestroyedBuffer buffer
 					buffer.destroy()
-			), @projectRingInvariantState.emptyBufferDestroyDelayOnStartup
+			), 0
 		filesCurrentlyOpen = @getOpenFilePaths().map (filePath) -> filePath.toLowerCase()
 		filesToOpen = options.projectState.files.open.filter (filePath) -> filePath.toLowerCase() not in filesCurrentlyOpen
 		_q = require 'q'
