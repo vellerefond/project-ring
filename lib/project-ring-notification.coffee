@@ -4,7 +4,7 @@ module.exports =
 class ProjectRingNotification
 	createNotification: ->
 		return if @notification
-		@isEnabled = true
+		@isEnabled = atom.config.get 'project-ring.useNotifications'
 		@animationDelay = 250
 		@closeDelays =
 			notification: 1500
@@ -38,6 +38,7 @@ class ProjectRingNotification
 
 	notify: (message, sticky) ->
 		@close()
+		console.debug @isEnabled, message, atom.config.get 'project-ring.useNotifications'
 		return unless @isEnabled and message
 		$(document.body).append @setCSS('notify').text message.toString()
 		@getActiveNotification().show @animationDelay

@@ -1,3 +1,5 @@
+###### 0.32.1 - Fixed a notification service initialization bug, as per issue #31
+
 ###### 0.32.0 - Implemented the ability to choose to automatically save and restore the panes layout
 * Added a new configuration option (Save And Restore The Panes Layout) with a default value of false
 * Implemented basic pane operations such as building a map of the panes layout as well as restoring the panes layout from a panes layout map
