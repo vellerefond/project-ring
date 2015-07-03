@@ -26,7 +26,7 @@ module.exports =
 	initialize: (state) ->
 		if @projectRingInvariantState and @projectRingInvariantState.isInitialized
 			return
-		@projectRingInvariantState = Object.freeze isInitialized: true
+		@projectRingInvariantState = Object.freeze isInitialized: true, changedPathsUpdateDelay: 250
 		@currentlySavingConfiguration = csonFile: false
 		lib.setupEventHandling()
 		@setupProjectRingNotification()
@@ -197,7 +197,7 @@ module.exports =
 				return unless @checkIfInProject() and not @currentlySettingProjectRootDirectories
 				@add updateRootDirectoriesAndTreeViewStateOnly: true
 				@runFilePatternHiding()
-			), 0
+			), @projectRingInvariantState.changedPathsUpdateDelay
 
 	runFilePatternHiding: (useFilePatternHiding) ->
 		setTimeout (=>
@@ -351,7 +351,7 @@ module.exports =
 		lib.emitStatesCacheInitialized()
 
 	saveProjectRing: ->
-		return unless lib.getProjectRingId()
+		return unless lib.getProjectRingId() and @statesCache
 		csonFilePath = lib.getCSONFilePath()
 		return unless csonFilePath
 		_cson = require 'season'
@@ -531,6 +531,7 @@ module.exports =
 		), 0
 
 	toggle: (openProjectFilesOnly) ->
+		return unless @statesCache
 		deleteKeyBinding = lib.findInArray atom.keymaps.getKeyBindings(), 'project-ring:add', -> @.command
 		if deleteKeyBinding
 		then deleteKeyBinding =

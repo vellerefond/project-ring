@@ -9,9 +9,9 @@
 
  - ##### Automatically load a project when Atom starts.
 
- - ##### Once a project is in the project ring, changes to the tree view state, as well as opening and closing files, automatically update its state.
+ - ##### Once a project is in the project ring, when loaded, changes to the tree view state, as well as opening and closing files, automatically update its state. Optionally, the panes layout can be saved as well in the project's state by enabling the relevant configuration option.
 
- - ##### Adding a project in one of Atom's windows is visible in other windows as well.
+ - ##### When a project is added in one of Atom's windows it is available in other windows as well.
 
  - ##### It is possible to use a regular expression to filter the entries of the tree view to hide. The pattern is first matched against the file's path and then against the file's name. You can provide an _anti-pattern_ as well to prevent certain entries from being hidden. This works whether or not a project has been loaded from the project ring so that it can be used regardless of any other usage of the package.
 
