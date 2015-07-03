@@ -1,3 +1,5 @@
+###### 0.32.3 - Removed debugging code
+
 ###### 0.32.2 - Implemented sanity checks and fixed the tree view state updating logic
 
 ###### 0.32.1 - Fixed a notification service initialization bug, as per issue #31

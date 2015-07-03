@@ -38,7 +38,6 @@ class ProjectRingNotification
 
 	notify: (message, sticky) ->
 		@close()
-		console.debug @isEnabled, message, atom.config.get 'project-ring.useNotifications'
 		return unless @isEnabled and message
 		$(document.body).append @setCSS('notify').text message.toString()
 		@getActiveNotification().show @animationDelay
