@@ -1,5 +1,10 @@
 lib = require './project-ring-lib'
 
+globals =
+	projectRingInitialized: false
+	changedPathsUpdateDelay: 250
+	statesCacheReady: false
+
 module.exports =
 	config:
 		closePreviousProjectFiles: { type: 'boolean', default: true, description: 'Close the files of other projects when switching to a project' }
@@ -24,9 +29,8 @@ module.exports =
 		setTimeout (=> @initialize state), 0
 
 	initialize: (state) ->
-		if @projectRingInvariantState and @projectRingInvariantState.isInitialized
-			return
-		@projectRingInvariantState = Object.freeze isInitialized: true, changedPathsUpdateDelay: 250
+		return if globals.projectRingInitialized
+		globals.projectRingInitialized = true
 		@currentlySavingConfiguration = csonFile: false
 		lib.setupEventHandling()
 		@setupProjectRingNotification()
@@ -197,7 +201,7 @@ module.exports =
 				return unless @checkIfInProject() and not @currentlySettingProjectRootDirectories
 				@add updateRootDirectoriesAndTreeViewStateOnly: true
 				@runFilePatternHiding()
-			), @projectRingInvariantState.changedPathsUpdateDelay
+			), globals.changedPathsUpdateDelay
 
 	runFilePatternHiding: (useFilePatternHiding) ->
 		setTimeout (=>
@@ -249,7 +253,7 @@ module.exports =
 		@statesCache[lib.getProjectKey cacheKey] = projectState
 
 	getProjectState: (cacheKey) ->
-		return undefined unless @statesCache
+		return undefined unless globals.statesCacheReady
 		return @statesCache[lib.getProjectKey cacheKey]
 
 	unsetProjectState: (cacheKey) ->
@@ -285,7 +289,7 @@ module.exports =
 		@watchProjectRingConfiguration true
 
 	filterProjectRingFilePaths: ->
-		return unless @statesCache
+		return unless globals.statesCacheReady
 		_fs = require 'fs'
 		statesCacheKeysFixed = []
 		for key in Object.keys @statesCache
@@ -308,6 +312,9 @@ module.exports =
 		statesCacheKeysFixed
 
 	loadProjectRing: (projectKeyToLoad, fromConfigWatchCallback) ->
+		globals.statesCacheReady = false
+		currentProjectStateKey = @currentProjectState?.key
+		@currentProjectState = undefined
 		return unless lib.getProjectRingId()
 		csonFilePath = lib.getCSONFilePath()
 		return unless csonFilePath
@@ -325,6 +332,7 @@ module.exports =
 		_cson = require 'season'
 		try
 			@statesCache = _cson.readFileSync csonFilePath
+			globals.statesCacheReady = true
 			projectToLoad = undefined
 			unless fromConfigWatchCallback
 				@filterProjectRingFilePaths()
@@ -346,7 +354,7 @@ module.exports =
 			@projectRingNotification.alert 'Could not load the project ring data for id: "' + lib.getProjectRingId() + '" (' + error + ')'
 			return
 		@setProjectState lib.defaultProjectCacheKey, defaultProjectState unless @getProjectState lib.defaultProjectCacheKey
-		@currentProjectState = @getProjectState @currentProjectState.key if @currentProjectState
+		@currentProjectState = @getProjectState currentProjectStateKey if currentProjectStateKey
 		lib.updateDefaultProjectConfiguration projectKeyToLoad, Object.keys @statesCache
 		lib.emitStatesCacheInitialized()
 
@@ -389,6 +397,7 @@ module.exports =
 		return []
 
 	checkIfInProject: (omitNotification) ->
+		return undefined unless globals.statesCacheReady
 		unless @currentProjectState or (omitNotification ? true)
 			@projectRingNotification.alert 'No project has been loaded'
 		return @currentProjectState
@@ -531,7 +540,7 @@ module.exports =
 		), 0
 
 	toggle: (openProjectFilesOnly) ->
-		return unless @statesCache
+		return unless globals.statesCacheReady
 		deleteKeyBinding = lib.findInArray atom.keymaps.getKeyBindings(), 'project-ring:add', -> @.command
 		if deleteKeyBinding
 		then deleteKeyBinding =
@@ -552,7 +561,7 @@ module.exports =
 			}, @statesCache, 'key'
 
 	openMultipleProjects: ->
-		return unless @statesCache
+		return unless globals.statesCacheReady
 		@loadProjectRingProjectSelectView()
 		unless @projectRingProjectSelectView.isVisible()
 			projectKeysToOfferForOpening = []

@@ -1,3 +1,5 @@
+###### 0.32.4 - Implemented additional checks to guard against using the project state cache while in an invalid state
+
 ###### 0.32.3 - Removed debugging code
 
 ###### 0.32.2 - Implemented sanity checks and fixed the tree view state updating logic
