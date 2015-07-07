@@ -1,3 +1,5 @@
+###### 0.32.5 - Implemented additional check to guard against saving the project configuration while in an invalid state
+
 ###### 0.32.4 - Implemented additional checks to guard against using the project state cache while in an invalid state
 
 ###### 0.32.3 - Removed debugging code

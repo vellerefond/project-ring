@@ -359,7 +359,7 @@ module.exports =
 		lib.emitStatesCacheInitialized()
 
 	saveProjectRing: ->
-		return unless lib.getProjectRingId() and @statesCache
+		return unless lib.getProjectRingId() and globals.statesCacheReady
 		csonFilePath = lib.getCSONFilePath()
 		return unless csonFilePath
 		_cson = require 'season'
