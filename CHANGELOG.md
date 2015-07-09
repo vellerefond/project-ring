@@ -1,3 +1,5 @@
+###### 0.32.7 - Removed the spec folder along with the default spec
+
 ###### 0.32.6 - Changed the licence from MIT to GPL-2.0
 
 ###### 0.32.5 - Implemented additional check to guard against saving the project configuration while in an invalid state
