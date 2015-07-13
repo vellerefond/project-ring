@@ -3,6 +3,7 @@ lib = require './project-ring-lib'
 globals =
 	projectRingInitialized: false
 	changedPathsUpdateDelay: 250
+	failedWatchRetryTimeoutDelay: 250
 	statesCacheReady: false
 
 module.exports =
@@ -261,10 +262,14 @@ module.exports =
 		delete @statesCache[lib.getProjectKey cacheKey]
 
 	watchProjectRingConfiguration: (watch) ->
+		clearTimeout @watchProjectRingConfiguration.clearFailedWatchRetryTimeoutId
 		return unless lib.getProjectRingId()
-		csonFilePath = lib.getCSONFilePath()
-		if watch and csonFilePath
+		if watch
+			csonFilePath = lib.getCSONFilePath()
 			_fs = require 'fs'
+			unless csonFilePath and _fs.existsSync csonFilePath
+				@watchProjectRingConfiguration.clearFailedWatchRetryTimeoutId = setTimeout (=> @watchProjectRingConfiguration true), globals.failedWatchRetryTimeoutDelay
+				return
 			lib.setProjectRingConfigurationWatcher _fs.watch csonFilePath, (event, filename) =>
 				if @currentlySavingConfiguration.csonFile
 					@currentlySavingConfiguration.csonFile = false
@@ -328,7 +333,9 @@ module.exports =
 		_fs = require 'fs'
 		unless _fs.existsSync csonFilePath
 			@setProjectState lib.defaultProjectCacheKey, defaultProjectState
+			globals.statesCacheReady = true
 			@saveProjectRing()
+			globals.statesCacheReady = false
 		_cson = require 'season'
 		try
 			@statesCache = _cson.readFileSync csonFilePath

@@ -1,3 +1,5 @@
+###### 0.33.0 - Fixed the logic for when the configuration file is missing when starting Atom and when watching the file for changes (#36)
+
 ###### 0.32.8 - Renamed LICENCE.md to LICENSE
 
 ###### 0.32.7 - Removed the spec folder along with the default spec
