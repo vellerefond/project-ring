@@ -336,9 +336,13 @@ module.exports =
 			globals.statesCacheReady = true
 			@saveProjectRing()
 			globals.statesCacheReady = false
-		_cson = require 'season'
 		try
-			@statesCache = _cson.readFileSync csonFilePath
+			_cson = require 'season'
+			configRead = false
+			while not configRead
+				@statesCache = _cson.readFileSync csonFilePath
+				continue unless @statesCache
+				configRead = true
 			globals.statesCacheReady = true
 			projectToLoad = undefined
 			unless fromConfigWatchCallback
@@ -366,12 +370,12 @@ module.exports =
 		lib.emitStatesCacheInitialized()
 
 	saveProjectRing: ->
-		return unless lib.getProjectRingId() and globals.statesCacheReady
+		return unless lib.getProjectRingId() and globals.statesCacheReady and @statesCache
 		csonFilePath = lib.getCSONFilePath()
 		return unless csonFilePath
-		_cson = require 'season'
 		try
 			@currentlySavingConfiguration.csonFile = true
+			_cson = require 'season'
 			_cson.writeFileSync csonFilePath, @statesCache
 		catch error
 			@currentlySavingConfiguration.csonFile = false

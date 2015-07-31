@@ -1,3 +1,5 @@
+###### 0.33.1 - Guarded against failed configuration reads when using the multiple simultaneously open projects feature (bug fis for issue #37)
+
 ###### 0.33.0 - Fixed the logic for when the configuration file is missing when starting Atom and when watching the file for changes (#36)
 
 ###### 0.32.8 - Renamed LICENCE.md to LICENSE
