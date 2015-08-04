@@ -141,7 +141,8 @@ module.exports =
 							@projectRingNotification.warn 'File "' + openProjectBufferFilePath + '" has been removed from the list of files to always open'
 						else if not @fixOpenFilesToCurrentProjectAssociations()
 							openProjectBuffer.projectRingFSWatcher.close()
-							@projectRingNotification.warn 'File "' + openProjectBufferFilePath + '" has been removed from the current project'
+							if @checkIfInProject() and lib.findInArray @currentProjectState.files.open, openProjectBufferFilePath.toLowerCase(), String.prototype.toLowerCase
+								@projectRingNotification.warn 'File "' + openProjectBufferFilePath + '" has been removed from the current project'
 						openProjectBufferFilePath = openProjectBuffer.file.path
 					if atom.config.get 'project-ring.keepAllOpenFilesRegardlessOfProject'
 						@alwaysOpenFilePath openProjectBuffer.file.path, true
