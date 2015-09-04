@@ -646,6 +646,7 @@ module.exports =
 				@currentProjectState.files.open = lib.filterFromArray @currentProjectState.files.open, filePath.toLowerCase(), String.prototype.toLowerCase
 		@saveProjectRing() if @currentProjectState.files.open.length isnt currentProjectRelatedFilePaths.length
 		###
+		@saveProjectRing() if associationsFixed
 		associationsFixed
 
 	banFilesFromProject: ->

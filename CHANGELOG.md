@@ -1,3 +1,5 @@
+###### 0.34.1 - Fixed the logic for when a file that belongs to a project's open files is renamed
+
 ###### 0.34.0 - Switched the notification logic to use Atom's notifications (feature request of issue #39)
 
 ###### 0.33.2 - Fixed minor logic bug for when a file that belongs to a project is removed outside of Atom
