@@ -802,7 +802,7 @@ module.exports =
 								@runFilePatternHiding()
 						treeView?.mainModule.treeView?.show?()
 						setTimeout (=>
-							treeView?.mainModule.treeView?.updateRoots? options.projectState.treeViewState.directoryExpansionStates or null
+							treeView?.mainModule.treeView?.updateRoots? options.projectState.treeViewState?.directoryExpansionStates or null
 							@runFilePatternHiding()
 						), 0
 						@currentProjectState = options.projectState
