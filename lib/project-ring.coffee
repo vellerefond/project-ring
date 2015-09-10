@@ -29,6 +29,24 @@ module.exports =
 	activate: (state) ->
 		setTimeout (=> @initialize state), 0
 
+	consumeStatusBar: (statusBar) ->
+		return if @statusBarTile
+		statusBarTileElement = document.createElement 'div'
+		statusBarTileElement.classList.add 'project-ring-status-bar-tile'
+		statusBarTileElement.textContent = 'Project Ring'
+		@statusBarTile = statusBar.addRightTile item: statusBarTileElement, priority: 0
+		@statusBarTile.item.addEventListener 'click', => @toggle()
+
+	serialize: ->
+
+	deactivate: ->
+		@projectRingView.destroy() if @projectRingView
+		@projectRingInputView.destroy() if @projectRingInputView
+		@projectRingProjectSelectView.destroy() if @projectRingProjectSelectView
+		@projectRingFileSelectView.destroy() if @projectRingFileSelectView
+		@statusBarTile?.destroy()
+		@statusBarTile = null
+
 	initialize: (state) ->
 		return if globals.projectRingInitialized
 		globals.projectRingInitialized = true
@@ -382,14 +400,6 @@ module.exports =
 			@currentlySavingConfiguration.csonFile = false
 			@projectRingNotification.alert 'Could not save the project ring data for id: "' + lib.getProjectRingId() + '" (' + error + ')'
 			return
-
-	deactivate: ->
-		@projectRingView.destroy() if @projectRingView
-		@projectRingInputView.destroy() if @projectRingInputView
-		@projectRingProjectSelectView.destroy() if @projectRingProjectSelectView
-		@projectRingFileSelectView.destroy() if @projectRingFileSelectView
-
-	serialize: ->
 
 	loadProjectRingView: ->
 		@projectRingView = new (require './project-ring-view') @ unless @projectRingView

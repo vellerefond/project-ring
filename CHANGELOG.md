@@ -1,3 +1,5 @@
+###### 0.35.0 - Added a clickable status bar tile for easier access to projects (feature started to address issue #38)
+
 ###### 0.34.2 - Fixed logic bug in the tree view restoration code
 
 ###### 0.34.1 - Fixed the logic for when a file that belongs to a project's open files is renamed
