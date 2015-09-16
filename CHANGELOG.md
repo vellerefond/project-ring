@@ -1,3 +1,5 @@
+###### 0.35.1 - Fixed the logic for always opened files in multiple windows
+
 ###### 0.35.0 - Added a clickable status bar tile for easier access to projects (feature started to address issue #38)
 
 ###### 0.34.2 - Fixed logic bug in the tree view restoration code

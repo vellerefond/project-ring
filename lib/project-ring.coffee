@@ -4,6 +4,7 @@ globals =
 	projectRingInitialized: false
 	changedPathsUpdateDelay: 250
 	failedWatchRetryTimeoutDelay: 250
+	bufferDestroyedTimeoutDelay: 250
 	statesCacheReady: false
 
 module.exports =
@@ -130,19 +131,21 @@ module.exports =
 				onBufferDestroyedProjectRingEventHandlerFactory = (bufferDestroyed) =>
 					=>
 						return unless bufferDestroyed.file
-						bufferDestroyed.projectRingFSWatcher.close() if bufferDestroyed.projectRingFSWatcher
-						bufferDestroyedPathProxy = bufferDestroyed.file.path.toLowerCase()
-						defaultProjectState = @getProjectState lib.defaultProjectCacheKey
-						if lib.findInArray defaultProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
-							defaultProjectState.files.open =
-								lib.filterFromArray defaultProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
-							@saveProjectRing()
-							return
-						return unless @checkIfInProject()
-						if lib.findInArray @currentProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
-							@currentProjectState.files.open =
-								lib.filterFromArray @currentProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
-							@mapPanesLayout => @saveProjectRing()
+						setTimeout (=>
+							bufferDestroyed.projectRingFSWatcher.close() if bufferDestroyed.projectRingFSWatcher
+							bufferDestroyedPathProxy = bufferDestroyed.file.path.toLowerCase()
+							defaultProjectState = @getProjectState lib.defaultProjectCacheKey
+							if lib.findInArray defaultProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
+								defaultProjectState.files.open =
+									lib.filterFromArray defaultProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
+								@saveProjectRing()
+								return
+							return unless @checkIfInProject()
+							if lib.findInArray @currentProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
+								@currentProjectState.files.open =
+									lib.filterFromArray @currentProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
+								@mapPanesLayout => @saveProjectRing()
+						), globals.bufferDestroyedTimeoutDelay
 				atom.project.buffers.forEach (buffer) =>
 					lib.offDestroyedBuffer buffer
 					lib.onceDestroyedBuffer buffer, onBufferDestroyedProjectRingEventHandlerFactory buffer
@@ -357,6 +360,7 @@ module.exports =
 			globals.statesCacheReady = false
 		try
 			_cson = require 'season'
+			currentFilesToAlwaysOpen = @statesCache?[lib.defaultProjectCacheKey]?.files.open
 			configRead = false
 			while not configRead
 				@statesCache = _cson.readFileSync csonFilePath
@@ -375,6 +379,16 @@ module.exports =
 							@projectLoadedByPathMatch = true
 							break
 				projectToLoad = @getProjectState projectKeyToLoad
+			else if currentFilesToAlwaysOpen and currentFilesToAlwaysOpen.length
+				filesToResetToAlwaysOpen = atom.workspace.getTextEditors().filter((textEditor) => textEditor.buffer.file).map((textEditor) => textEditor.buffer.file.path)
+					.filter((textEditorPath) =>
+						textEditorPathProxy = textEditorPath.toLowerCase()
+						lib.findInArray(currentFilesToAlwaysOpen, textEditorPathProxy, String.prototype.toLowerCase) and
+						not lib.findInArray(@getProjectState(lib.defaultProjectCacheKey).files.open, textEditorPathProxy, String.prototype.toLowerCase)
+					)
+				if filesToResetToAlwaysOpen.length
+					@getProjectState(lib.defaultProjectCacheKey).files.open = @getProjectState(lib.defaultProjectCacheKey).files.open.concat filesToResetToAlwaysOpen
+					@saveProjectRing()
 			if projectToLoad and not projectToLoad.isDefault
 				setTimeout (=>
 					@processProjectRingViewProjectSelection projectState: @getProjectState projectToLoad.key
