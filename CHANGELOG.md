@@ -1,3 +1,5 @@
+###### 0.35.2 - Fixed the logic for when a project's files are removed from the file system but Atom opens their cached versions
+
 ###### 0.35.1 - Fixed the logic for always opened files in multiple windows
 
 ###### 0.35.0 - Added a clickable status bar tile for easier access to projects (feature started to address issue #38)

@@ -152,19 +152,20 @@ module.exports =
 				onAddedBufferDoSetup = (openProjectBuffer, deferedManualSetup) =>
 					lib.offDestroyedBuffer openProjectBuffer unless deferedManualSetup
 					lib.onceDestroyedBuffer openProjectBuffer, onBufferDestroyedProjectRingEventHandlerFactory openProjectBuffer
-					_fs = require 'fs'
 					openProjectBufferFilePath = openProjectBuffer.file.path
-					openProjectBuffer.projectRingFSWatcher = _fs.watch openProjectBuffer.file.path, (event, filename) =>
-						return unless event is 'rename'
-						affectedProjectKeys = @filterProjectRingFilePaths()
-						if lib.defaultProjectCacheKey in affectedProjectKeys
-							openProjectBuffer.projectRingFSWatcher.close() unless @fixOpenFilesToCurrentProjectAssociations()
-							@projectRingNotification.warn 'File "' + openProjectBufferFilePath + '" has been removed from the list of files to always open'
-						else if not @fixOpenFilesToCurrentProjectAssociations()
-							openProjectBuffer.projectRingFSWatcher.close()
-							if @checkIfInProject() and lib.findInArray @currentProjectState.files.open, openProjectBufferFilePath.toLowerCase(), String.prototype.toLowerCase
-								@projectRingNotification.warn 'File "' + openProjectBufferFilePath + '" has been removed from the current project'
-						openProjectBufferFilePath = openProjectBuffer.file.path
+					_fs = require 'fs'
+					if _fs.existsSync openProjectBufferFilePath
+						openProjectBuffer.projectRingFSWatcher = _fs.watch openProjectBufferFilePath, (event, filename) =>
+							return unless event is 'rename'
+							affectedProjectKeys = @filterProjectRingFilePaths()
+							if lib.defaultProjectCacheKey in affectedProjectKeys
+								openProjectBuffer.projectRingFSWatcher.close() unless @fixOpenFilesToCurrentProjectAssociations()
+								@projectRingNotification.warn 'File "' + openProjectBufferFilePath + '" has been removed from the list of files to always open'
+							else if not @fixOpenFilesToCurrentProjectAssociations()
+								openProjectBuffer.projectRingFSWatcher.close()
+								if @checkIfInProject() and lib.findInArray @currentProjectState.files.open, openProjectBufferFilePath.toLowerCase(), String.prototype.toLowerCase
+									@projectRingNotification.warn 'File "' + openProjectBufferFilePath + '" has been removed from the current project'
+							openProjectBufferFilePath = openProjectBuffer.file.path
 					if atom.config.get 'project-ring.keepAllOpenFilesRegardlessOfProject'
 						@alwaysOpenFilePath openProjectBuffer.file.path, true
 						return
