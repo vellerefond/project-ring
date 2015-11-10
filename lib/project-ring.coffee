@@ -99,21 +99,22 @@ module.exports =
 		else
 			@setProjectRing 'default', projectKeyToLoadAtStartUp
 		atom.commands.add 'atom-workspace', 'tree-view:toggle', => @runFilePatternHiding()
-		atom.commands.add 'atom-workspace', "project-ring:add-project", => @addAs()
-		atom.commands.add 'atom-workspace', "project-ring:rename-current-project", => @addAs true
-		atom.commands.add 'atom-workspace', "project-ring:toggle", => @toggle()
-		atom.commands.add 'atom-workspace', "project-ring:open-project-files", => @toggle true
-		atom.commands.add 'atom-workspace', "project-ring:open-multiple-projects", => @openMultipleProjects()
-		atom.commands.add 'atom-workspace', "project-ring:add-current-file-to-current-project", => @addOpenFilePathToProject null, true
-		atom.commands.add 'atom-workspace', "project-ring:add-files-to-current-project", => @addFilesToProject()
-		atom.commands.add 'atom-workspace', "project-ring:ban-current-file-from-current-project", => @banOpenFilePathFromProject()
-		atom.commands.add 'atom-workspace', "project-ring:ban-files-from-current-project", => @banFilesFromProject()
-		atom.commands.add 'atom-workspace', "project-ring:always-open-current-file", => @alwaysOpenFilePath()
-		atom.commands.add 'atom-workspace', "project-ring:always-open-files", => @alwaysOpenFiles()
-		atom.commands.add 'atom-workspace', "project-ring:unload-current-project", => @unloadCurrentProject()
-		atom.commands.add 'atom-workspace', "project-ring:delete-current-project", => @deleteCurrentProject()
-		atom.commands.add 'atom-workspace', "project-ring:delete-project-ring", => @deleteProjectRing()
-		atom.commands.add 'atom-workspace', "project-ring:edit-key-bindings", => @editKeyBindings()
+		atom.commands.add 'atom-workspace', 'project-ring:add-project', => @addAs()
+		atom.commands.add 'atom-workspace', 'project-ring:rename-current-project', => @addAs true
+		atom.commands.add 'atom-workspace', 'project-ring:toggle', => @toggle()
+		atom.commands.add 'atom-workspace', 'project-ring:open-project-files', => @toggle true
+		atom.commands.add 'atom-workspace', 'project-ring:open-multiple-projects', => @openMultipleProjects()
+		atom.commands.add 'atom-workspace', 'project-ring:add-current-file-to-current-project', => @addOpenFilePathToProject null, true
+		atom.commands.add 'atom-workspace', 'project-ring:add-files-to-current-project', => @addFilesToProject()
+		atom.commands.add 'atom-workspace', 'project-ring:ban-current-file-from-current-project', => @banOpenFilePathFromProject()
+		atom.commands.add 'atom-workspace', 'project-ring:ban-files-from-current-project', => @banFilesFromProject()
+		atom.commands.add 'atom-workspace', 'project-ring:always-open-current-file', => @alwaysOpenFilePath()
+		atom.commands.add 'atom-workspace', 'project-ring:always-open-files', => @alwaysOpenFiles()
+		atom.commands.add 'atom-workspace', 'project-ring:unload-current-project', => @unloadCurrentProject()
+		atom.commands.add 'atom-workspace', 'project-ring:delete-current-project', => @deleteCurrentProject()
+		atom.commands.add 'atom-workspace', 'project-ring:delete-project-ring', => @deleteProjectRing()
+		atom.commands.add 'atom-workspace', 'project-ring:edit-key-bindings', => @editKeyBindings()
+		atom.commands.add 'atom-workspace', 'project-ring:close-project-unrelated-files', => @closeProjectUnrelatedFiles()
 
 	setupProjectRingNotification: ->
 		@projectRingNotification = new (require './project-ring-notification')
@@ -429,8 +430,7 @@ module.exports =
 		@projectRingFileSelectView = new (require './project-ring-file-select-view') @ unless @projectRingFileSelectView
 
 	getOpenFilePaths: ->
-		unless atom.config.get 'project-ring.doNotSaveAndRestoreOpenProjectFiles'
-			return (atom.workspace.getTextEditors().filter (editor) -> editor.buffer.file).map (editor) -> editor.buffer.file.path
+		return lib.getTextEditorFilePaths() unless atom.config.get 'project-ring.doNotSaveAndRestoreOpenProjectFiles'
 		return []
 
 	checkIfInProject: (omitNotification) ->
@@ -951,3 +951,13 @@ module.exports =
 			@projectRingNotification.alert 'Could not find the default Project Ring key bindings file'
 			return
 		lib.openFiles keyBindingsFilePath
+
+	closeProjectUnrelatedFiles: ->
+		return unless globals.statesCacheReady
+		openFilePaths = lib.getTextEditorFilePaths()
+		projectFilePaths = \
+			(if @checkIfInProject false then @currentProjectState.files.open else []).concat \
+				@getProjectState(lib.defaultProjectCacheKey).files.open
+		filesToClose = openFilePaths.filter (path) -> not lib.findInArray projectFilePaths, path.toLowerCase(), String.prototype.toLowerCase
+		atom.project.getBuffers().filter((buffer) -> buffer.file and lib.findInArray filesToClose, buffer.file.path).forEach (buffer) -> buffer.destroy()
+		undefined

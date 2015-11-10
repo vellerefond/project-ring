@@ -1,7 +1,7 @@
 {
   "name": "project-ring",
   "main": "./lib/project-ring",
-  "version": "0.35.2",
+  "version": "0.36.0",
   "description": "Project management for the Atom editor.",
   "repository": "https://github.com/vellerefond/project-ring",
   "license": "GPL-2.0",

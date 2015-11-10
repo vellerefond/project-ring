@@ -23,3 +23,12 @@
 		]
 	}
 ]
+'context-menu':
+	'.tab-bar': [
+		{ label: 'Close Project Unrelated Files', command: 'project-ring:close-project-unrelated-files' },
+		{ type: 'separator' }
+	]
+	'.tab': [
+		{ label: 'Close Project Unrelated Files', command: 'project-ring:close-project-unrelated-files' },
+		{ type: 'separator' }
+	]

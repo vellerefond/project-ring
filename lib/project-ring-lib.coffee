@@ -248,6 +248,9 @@ module.exports = Object.freeze
 			return true if new RegExp('^' + @turnToPathRegExp(rootDirectory), 'i').test(filePath)
 		false
 
+	getTextEditorFilePaths: ->
+		(atom.workspace.getTextEditors().filter (editor) -> editor.buffer.file).map (editor) -> editor.buffer.file.path
+
 	##################
 	# Event Handling #
 	##################
