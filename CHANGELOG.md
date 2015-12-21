@@ -1,3 +1,5 @@
+###### 0.36.1 - Changed the notification module to create dismissable notifications, except for error notifications
+
 ###### 0.36.0 - Implemented a tab and tab-bar context menu item for closing any project/always open unrelated files
 
 ###### 0.35.2 - Fixed the logic for when a project's files are removed from the file system but Atom opens their cached versions
