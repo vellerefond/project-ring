@@ -1,3 +1,5 @@
+###### 0.36.2 - Only warning and error notifications are dismissable
+
 ###### 0.36.1 - Changed the notification module to create dismissable notifications, except for error notifications
 
 ###### 0.36.0 - Implemented a tab and tab-bar context menu item for closing any project/always open unrelated files
