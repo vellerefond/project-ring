@@ -1,3 +1,5 @@
+###### 0.37.0 - Fixed tree view file pattern hiding logic
+
 ###### 0.36.2 - Only warning and error notifications are dismissable
 
 ###### 0.36.1 - Changed the notification module to create dismissable notifications, except for error notifications

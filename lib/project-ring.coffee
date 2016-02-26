@@ -71,7 +71,7 @@ module.exports =
 				atom.config.observe lib.projectToLoadAtStartUpConfigurationKeyPath, (projectToLoadAtStartUp) =>
 					lib.setDefaultProjectToLoadAtStartUp  projectToLoadAtStartUp, true
 				return if projectKeyToLoadAtStartUp and @getProjectState projectKeyToLoadAtStartUp
-				@projectRingNotification.warn 'No project has been loaded' unless @projectLoadedByPathMatch
+				@projectRingNotification.warn('No project has been loaded', true) unless @projectLoadedByPathMatch
 			), 0
 		treeView = atom.packages.getLoadedPackage 'tree-view'
 		if treeView
@@ -259,12 +259,9 @@ module.exports =
 				entries.each ->
 					$$ = $ @
 					$fileMetadata = $$.find('.name')
-					filePath = $fileMetadata.attr('data-path')
-					fileName = $fileMetadata.text()
-					if \
-						(filePattern.test(filePath) and not (reverseFilePattern and reverseFilePattern.test(filePath))) or
-						(filePattern.test(fileName) and not (reverseFilePattern and reverseFilePattern.test(fileName)))
-							$$.removeAttr('data-project-ring-filtered').attr('data-project-ring-filtered', 'true').css 'display', 'none'
+					filePath = $fileMetadata.attr('data-path').replace(/\\/g, '/')
+					if filePattern.test(filePath) and not (reverseFilePattern and reverseFilePattern.test(filePath))
+						$$.removeAttr('data-project-ring-filtered').attr('data-project-ring-filtered', 'true').css 'display', 'none'
 					else
 						$$.removeAttr('data-project-ring-filtered').css 'display', ''
 			else
@@ -720,7 +717,7 @@ module.exports =
 			atom.project.setPaths []
 			@currentlySettingProjectRootDirectories = false
 		@currentProjectState = undefined
-		@projectRingNotification.warn 'No project has been loaded' unless doNotShowNotification
+		@projectRingNotification.warn('No project has been loaded', true) unless doNotShowNotification
 
 	deleteCurrentProject: ->
 		@projectRingView.destroy() if @projectRingView

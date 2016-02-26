@@ -4,9 +4,9 @@ class ProjectRingNotification
 		return unless @isEnabled and message
 		atom.notifications.addSuccess message
 
-	warn: (message) ->
+	warn: (message, autoDismiss) ->
 		return unless @isEnabled and message
-		atom.notifications.addWarning message, dismissable: true
+		atom.notifications.addWarning message, dismissable: not autoDismiss
 
 	alert: (message) ->
 		return unless message
