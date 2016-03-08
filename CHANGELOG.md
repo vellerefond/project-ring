@@ -1,3 +1,5 @@
+###### 0.37.1 - Fixed logic bug for when saving the project state and the cache is not consistent
+
 ###### 0.37.0 - Fixed tree view file pattern hiding logic
 
 ###### 0.36.2 - Only warning and error notifications are dismissable

@@ -136,6 +136,7 @@ module.exports =
 							bufferDestroyed.projectRingFSWatcher.close() if bufferDestroyed.projectRingFSWatcher
 							bufferDestroyedPathProxy = bufferDestroyed.file.path.toLowerCase()
 							defaultProjectState = @getProjectState lib.defaultProjectCacheKey
+							return unless defaultProjectState
 							if lib.findInArray defaultProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
 								defaultProjectState.files.open =
 									lib.filterFromArray defaultProjectState.files.open, bufferDestroyedPathProxy, String.prototype.toLowerCase
