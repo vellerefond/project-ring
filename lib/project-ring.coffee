@@ -272,6 +272,9 @@ module.exports =
 
 	setProjectState: (cacheKey, projectState) ->
 		return unless typeof cacheKey is 'string' and typeof projectState is 'object'
+		if atom.config.get 'project-ring.doNotSaveAndRestoreOpenProjectFiles'
+			projectState.files.open = []
+			projectState.files.banned = []
 		@statesCache = {} unless typeof @statesCache is 'object'
 		@statesCache[lib.getProjectKey cacheKey] = projectState
 

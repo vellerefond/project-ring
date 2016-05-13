@@ -1,3 +1,5 @@
+###### 0.37.2 - fix(app): clear previous project state files if not watching open files
+
 ###### 0.37.1 - Fixed logic bug for when saving the project state and the cache is not consistent
 
 ###### 0.37.0 - Fixed tree view file pattern hiding logic
