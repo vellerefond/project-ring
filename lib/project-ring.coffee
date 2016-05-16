@@ -356,7 +356,7 @@ module.exports =
 			treeViewState: null
 		}
 		_fs = require 'fs'
-		unless _fs.existsSync(csonFilePath) and _fs.statSync(csonFilePath).size is not 0
+		unless _fs.existsSync(csonFilePath) and _fs.statSync(csonFilePath).size isnt 0
 			@setProjectState lib.defaultProjectCacheKey, defaultProjectState
 			globals.statesCacheReady = true
 			@saveProjectRing()

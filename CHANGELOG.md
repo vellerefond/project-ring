@@ -1,3 +1,5 @@
+###### 0.38.1 - fix(app): fix typo introduced in v0.38.0
+
 ###### 0.38.0 - fix(app): fix configuration file if file exists but is empty
 
 ###### 0.37.2 - fix(app): clear previous project state files if not watching open files
