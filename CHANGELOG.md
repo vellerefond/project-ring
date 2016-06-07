@@ -1,3 +1,5 @@
+###### 0.39.0 - feat(app): display current project in status bar
+
 ###### 0.38.1 - fix(app): fix typo introduced in v0.38.0
 
 ###### 0.38.0 - fix(app): fix configuration file if file exists but is empty

@@ -38,6 +38,13 @@ module.exports =
 		@statusBarTile = statusBar.addRightTile item: statusBarTileElement, priority: 0
 		@statusBarTile.item.addEventListener 'click', => @toggle()
 
+	updateStatusBar: ->
+		return unless @statusBarTile
+		text = 'Project Ring'
+		if @checkIfInProject true
+			text += ' (' + @currentProjectState.key + ')';
+		@statusBarTile.item.textContent = text;
+
 	serialize: ->
 
 	deactivate: ->
@@ -286,6 +293,10 @@ module.exports =
 		return unless (typeof cacheKey is 'string' or cacheKey is null) and typeof @statesCache is 'object'
 		delete @statesCache[lib.getProjectKey cacheKey]
 
+	setCurrentProjectState: (projectState) ->
+		@currentProjectState = projectState
+		@updateStatusBar()
+
 	watchProjectRingConfiguration: (watch) ->
 		clearTimeout @watchProjectRingConfiguration.clearFailedWatchRetryTimeoutId
 		return unless lib.getProjectRingId()
@@ -344,7 +355,7 @@ module.exports =
 	loadProjectRing: (projectKeyToLoad, fromConfigWatchCallback) ->
 		globals.statesCacheReady = false
 		currentProjectStateKey = @currentProjectState?.key
-		@currentProjectState = undefined
+		@setCurrentProjectState undefined
 		return unless lib.getProjectRingId()
 		csonFilePath = lib.getCSONFilePath()
 		return unless csonFilePath
@@ -401,7 +412,7 @@ module.exports =
 			@projectRingNotification.alert 'Could not load the project ring data for id: "' + lib.getProjectRingId() + '" (' + error + ')'
 			return
 		@setProjectState lib.defaultProjectCacheKey, defaultProjectState unless @getProjectState lib.defaultProjectCacheKey
-		@currentProjectState = @getProjectState currentProjectStateKey if currentProjectStateKey
+		@setCurrentProjectState @getProjectState currentProjectStateKey if currentProjectStateKey
 		lib.updateDefaultProjectConfiguration projectKeyToLoad, Object.keys @statesCache
 		lib.emitStatesCacheInitialized()
 
@@ -546,7 +557,7 @@ module.exports =
 				@projectRingNotification.notify 'Project "' + oldKey + '" is now known as "' + key + '"'
 			return
 		filePathsToAlwaysOpen = @getProjectState(lib.defaultProjectCacheKey).files.open.map (openFilePath) -> openFilePath.toLowerCase()
-		@currentProjectState = {
+		@setCurrentProjectState {
 			key: key,
 			isDefault: false,
 			rootDirectories: lib.getProjectRootDirectories(),
@@ -720,14 +731,14 @@ module.exports =
 				rootDirectory.projectRingFSWatcher.close()
 			atom.project.setPaths []
 			@currentlySettingProjectRootDirectories = false
-		@currentProjectState = undefined
+		@setCurrentProjectState undefined
 		@projectRingNotification.warn('No project has been loaded', true) unless doNotShowNotification
 
 	deleteCurrentProject: ->
 		@projectRingView.destroy() if @projectRingView
 		return unless @currentProjectState
 		key = @currentProjectState.key
-		@currentProjectState = undefined
+		@setCurrentProjectState undefined
 		@unsetProjectState key if key
 		@saveProjectRing()
 		lib.updateDefaultProjectConfiguration '', Object.keys(@statesCache), true, key
@@ -740,7 +751,7 @@ module.exports =
 		_fs = require 'fs'
 		_fs.unlinkSync csonFilePath if _fs.existsSync csonFilePath
 		@setProjectRing 'default'
-		@currentProjectState = undefined
+		@setCurrentProjectState undefined
 		lib.updateDefaultProjectConfiguration '', [ '' ]
 		@projectRingNotification.notify 'All project ring data has been deleted'
 
@@ -760,7 +771,7 @@ module.exports =
 		return unless projectState
 		@projectRingView.destroy() if @projectRingView
 		if projectState.key is @currentProjectState?.key
-			@currentProjectState = undefined
+			@setCurrentProjectState undefined
 		@unsetProjectState projectState.key
 		@saveProjectRing()
 		lib.updateDefaultProjectConfiguration '', Object.keys(@statesCache), true, projectState.key
@@ -831,12 +842,12 @@ module.exports =
 							treeView?.mainModule.treeView?.updateRoots? options.projectState.treeViewState?.directoryExpansionStates or null
 							@runFilePatternHiding()
 						), 0
-						@currentProjectState = options.projectState
+						@setCurrentProjectState options.projectState
 						@fixOpenFilesToCurrentProjectAssociations()
 						@projectRingNotification.notify 'Project "' + options.projectState.key + '" has been loaded'
 					atom.project.setPaths options.projectState.rootDirectories
 			else
-				@currentProjectState = options.projectState
+				@setCurrentProjectState options.projectState
 				@fixOpenFilesToCurrentProjectAssociations()
 				@projectRingNotification.notify 'Project "' + options.projectState.key + '" has been loaded'
 			if atom.config.get 'project-ring.makeTheCurrentProjectTheDefaultAtStartUp'

@@ -15,8 +15,8 @@ class ProjectRingView extends SelectListView
 		unless @isInitialized
 			openInNewWindowLabel = $ '<label class="new-window-label">Open in a new window? <input type="checkbox" class="new-window" /></label>'
 			openInNewWindowLabel.css(
-				'display': 'inline-block', 'font-size': '14px', 'word-spacing': '-5px', 'letter-spacing': '0px', 'position': 'absolute', 'right': '15px'
-			).find('.new-window').css 'vertical-align': 'sub', 'width': '14px', 'height': '14px'
+				'display': 'inline-block', 'font-size': '12px', 'letter-spacing': '0px', 'position': 'absolute', 'right': '15px'
+			).find('.new-window').css 'vertical-align': 'sub', 'width': '12px', 'height': '12px'
 			@filterEditorView[0].shadowRoot.appendChild openInNewWindowLabel[0]
 			@filterEditorView[0].shadowRoot.querySelector('.new-window').addEventListener 'click', => @filterEditorView.focus()
 			@filterEditorView.after \
