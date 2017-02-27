@@ -28,7 +28,7 @@ module.exports =
 		useNotifications: { type: 'boolean', default: true, description: 'Use notifications for important events' }
 
 	activate: (state) ->
-		setTimeout (=> @initialize state), 0
+		setTimeout (=> @initializePackage state), 0
 
 	consumeStatusBar: (statusBar) ->
 		return if @statusBarTile
@@ -55,7 +55,7 @@ module.exports =
 		@statusBarTile?.destroy()
 		@statusBarTile = null
 
-	initialize: (state) ->
+	initializePackage: (state) ->
 		return if globals.projectRingInitialized
 		globals.projectRingInitialized = true
 		@currentlySavingConfiguration = csonFile: false
